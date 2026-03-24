@@ -2,6 +2,18 @@ import React, { useState } from 'react';
 import { AppView, UserRole } from '../types';
 import { isSupabaseAuthConfigured, supabase } from '../lib/supabase';
 
+/** Dopo il magic link Supabase reindirizza qui: deve coincidere con Site URL / Redirect URLs nel progetto Supabase. */
+function getMagicLinkRedirectUrl(): string {
+  const fromEnv = (import.meta.env.VITE_AUTH_REDIRECT_URL || '').trim().replace(/\r?\n/g, '');
+  if (fromEnv && /^https?:\/\//i.test(fromEnv)) {
+    return fromEnv;
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${window.location.pathname}#auth-portal`;
+  }
+  return '';
+}
+
 interface AuthPortalProps {
   setView: (view: AppView) => void;
   role: UserRole;
@@ -29,7 +41,10 @@ const AuthPortal: React.FC<AuthPortalProps> = ({ setView, role, userEmail, onRef
     setError('');
     setMessage('');
     try {
-      const redirectTo = `${window.location.origin}${window.location.pathname}#auth-portal`;
+      const redirectTo = getMagicLinkRedirectUrl();
+      if (!redirectTo) {
+        throw new Error('URL di redirect non disponibile. In produzione imposta VITE_AUTH_REDIRECT_URL.');
+      }
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: { emailRedirectTo: redirectTo },

@@ -1,0 +1,86 @@
+<!--
+  SUPABASE: Dashboard → Authentication → Email Templates → Magic link
+
+  1. Subject (Oggetto): copia da magic_link_subject.txt oppure:
+     Il tuo link di accesso — Preventivatore EMOTIVE
+
+  2. Body: incolla tutto il contenuto da <!DOCTYPE> in fondo (senza questo commento).
+
+  Variabile obbligatoria: {{ .ConfirmationURL }}
+  Opzionale nel testo: {{ .Email }}
+-->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accesso Preventivatore EMOTIVE</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0d0d0d;-webkit-text-size-adjust:100%;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#0d0d0d;">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background-color:#111111;border:1px solid #2a2a2a;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="height:4px;background-color:#d4af37;"></td>
+          </tr>
+          <tr>
+            <td style="padding:40px 36px 28px;text-align:center;">
+              <p style="margin:0 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;font-style:italic;letter-spacing:0.06em;color:#d4af37;">
+                EMOTIVE
+              </p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:0.35em;text-transform:uppercase;color:#888888;">
+                Format &amp; Concept · Progettazione
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 36px 8px;">
+              <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:24px;line-height:1.25;color:#f5f5f5;font-weight:600;">
+                Il tuo link di accesso
+              </h1>
+              <p style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#b8b8b8;">
+                Hai richiesto l’accesso all’area riservata del <strong style="color:#e8e8e8;">Preventivatore Progettazione EMOTIVE</strong>.<br>
+                <span style="font-size:13px;color:#888888;">Indirizzo: <strong style="color:#d4af37;">{{ .Email }}</strong></span>
+              </p>
+              <p style="margin:0 0 28px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#888888;">
+                Clicca il pulsante qui sotto per entrare in modo sicuro. Il link ha validità limitata.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 36px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                <tr>
+                  <td align="center" style="border-radius:999px;background-color:#d4af37;box-shadow:0 8px 24px rgba(212,175,55,0.35);">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:16px 40px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;text-decoration:none;color:#1a1a1a;">
+                      Accedi ora
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#666666;">
+                Se il pulsante non funziona, copia e incolla questo indirizzo nel browser:<br>
+                <span style="word-break:break-all;color:#999999;font-size:11px;">{{ .ConfirmationURL }}</span>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;border-top:1px solid #252525;background-color:#0a0a0a;">
+              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#666666;">
+                Se non hai richiesto tu questo accesso, ignora questa email: nessun account verrà modificato senza il tuo clic.
+              </p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#444444;">
+                Emotive Srl · Protocollo E.M.O.T.I.V.E.®
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#555555;text-align:center;max-width:480px;">
+          Messaggio automatico: non rispondere a questa casella.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
