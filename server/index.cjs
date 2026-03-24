@@ -73,23 +73,66 @@ async function saveToAirtable(data) {
     return null;
   }
 
-  try {
-    const record = await airtableBase(AIRTABLE_TABLE_NAME).create([
-      {
-        fields: {
-          'Name': data.firstName || '',
-          'Cognome': data.lastName || '',
-          'Telefono': data.phone || '',
-          'Email': data.email || '',
-          'Richiesta': data.businessType || ''
-        }
-      }
-    ]);
+  const firstName = String(data.firstName || '').trim();
+  const lastName = String(data.lastName || '').trim();
+  const email = String(data.email || '').trim();
+  const phone = String(data.phone || '').trim();
+  const businessType = String(data.businessType || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim();
 
-    console.log(`✅ Cliente salvato in Airtable: ${data.firstName} ${data.lastName} (ID: ${record[0].id})`);
-    return record[0].id;
+  const fieldSets = [
+    // Schema storico Emotive (IT)
+    {
+      Name: firstName,
+      Cognome: lastName,
+      Telefono: phone,
+      Email: email,
+      Richiesta: businessType,
+    },
+    // Schema classico EN
+    {
+      Name: fullName || firstName,
+      Email: email,
+      Phone: phone,
+      Request: businessType,
+    },
+    // Schema lead gen comune
+    {
+      Nome: firstName,
+      'Cognome Cliente': lastName,
+      'Email Cliente': email,
+      'Telefono Cliente': phone,
+      'Tipo Locale': businessType,
+    },
+    // Schema minimale (solo campi tipicamente sempre presenti)
+    {
+      Name: fullName || firstName || email,
+      Email: email,
+    },
+  ];
+
+  try {
+    let lastError = null;
+    for (const fields of fieldSets) {
+      // Rimuove campi vuoti per evitare validazioni inutili lato Airtable
+      const cleaned = Object.fromEntries(
+        Object.entries(fields).filter(([, value]) => String(value || '').trim() !== '')
+      );
+      if (Object.keys(cleaned).length === 0) continue;
+      try {
+        const record = await airtableBase(AIRTABLE_TABLE_NAME).create([{ fields: cleaned }]);
+        const recId = record?.[0]?.id || null;
+        if (recId) {
+          console.log(`✅ Cliente salvato in Airtable: ${fullName || email} (ID: ${recId})`);
+          return recId;
+        }
+      } catch (attemptErr) {
+        lastError = attemptErr;
+      }
+    }
+    throw lastError || new Error('Nessun mapping campi Airtable compatibile.');
   } catch (err) {
-    console.error('❌ Errore salvataggio Airtable:', err.message);
+    console.error('❌ Errore salvataggio Airtable:', err?.message || err);
     return null;
   }
 }
