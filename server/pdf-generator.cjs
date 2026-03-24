@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const puppeteerCore = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
 function isMeaningfulProjectDescription(value) {
   if (typeof value !== 'string') return false;
@@ -923,10 +925,18 @@ async function generateQuotePDF(data) {
   // Inserisci CSS prima di </head>
   const htmlWithPdfCSS = html.replace('</head>', `${pdfCSS}</head>`);
   
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  const isVercelRuntime = Boolean(process.env.VERCEL);
+  const browser = isVercelRuntime
+    ? await puppeteerCore.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      })
+    : await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
   
   const page = await browser.newPage();
   await page.setContent(htmlWithPdfCSS, { waitUntil: 'networkidle0' });
