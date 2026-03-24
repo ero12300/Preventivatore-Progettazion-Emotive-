@@ -107,29 +107,32 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
       </section>
 
       {/* Core Logic Grid */}
-      <section className="py-16 md:py-40 bg-white px-4 sm:px-6">
+      <section className="py-16 md:py-40 bg-[#efefef] px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-6 md:gap-16">
-            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-[#fdfdfd] border border-gray-100 hover:shadow-2xl transition-all duration-500">
+            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-white border border-gray-300 hover:shadow-2xl transition-all duration-500">
               <div className="w-12 h-12 bg-brand-dark text-brand-gold flex items-center justify-center font-black text-xs">01</div>
               <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight md:tracking-tighter">Analisi Sistemica</h3>
-              <p className="text-gray-500 font-light leading-relaxed">
+              <p className="text-gray-700 font-normal leading-relaxed">
                 Analizziamo flussi, funzioni, impianti e identità del locale come un sistema unico. Ogni scelta è verificata e validata prima di essere costruita.
               </p>
+              <div className="w-14 h-[2px] bg-brand-gold/80"></div>
             </div>
-            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-[#fdfdfd] border border-gray-100 hover:shadow-2xl transition-all duration-500">
+            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-white border border-gray-300 hover:shadow-2xl transition-all duration-500">
               <div className="w-12 h-12 bg-brand-dark text-brand-gold flex items-center justify-center font-black text-xs">02</div>
               <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight md:tracking-tighter">Produzione Diretta</h3>
-              <p className="text-gray-500 font-light leading-relaxed">
+              <p className="text-gray-700 font-normal leading-relaxed">
                 La connessione con Boncordo Arredi elimina la distanza tra progetto e realtà. Progettiamo, produciamo e montiamo noi. Stesse mani, stesso controllo.
               </p>
+              <div className="w-14 h-[2px] bg-brand-gold/80"></div>
             </div>
-            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-[#fdfdfd] border border-gray-100 hover:shadow-2xl transition-all duration-500">
+            <div className="space-y-6 md:space-y-8 p-6 md:p-12 bg-white border border-gray-300 hover:shadow-2xl transition-all duration-500">
               <div className="w-12 h-12 bg-brand-dark text-brand-gold flex items-center justify-center font-black text-xs">03</div>
               <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight md:tracking-tighter">Workflow Digitale</h3>
-              <p className="text-gray-500 font-light leading-relaxed">
+              <p className="text-gray-700 font-normal leading-relaxed">
                 Comunicazione veloce, digitale e continua. Un unico interlocutore, decisioni rapide, zero dispersioni. Meno riunioni, più avanzamento reale.
               </p>
+              <div className="w-14 h-[2px] bg-brand-gold/80"></div>
             </div>
           </div>
         </div>
