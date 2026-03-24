@@ -16,9 +16,25 @@ function resolveClientJsonPath(env) {
 }
 
 function loadOAuthClientConfig(env) {
+  const clientId = (env.GMAIL_CLIENT_ID || '').trim();
+  const clientSecret = (env.GMAIL_CLIENT_SECRET || '').trim();
+  const redirectUri = (env.GMAIL_REDIRECT_URI || '').trim();
+
+  // In ambienti serverless (Vercel) preferiamo ENV invece del file JSON locale
+  if (clientId && clientSecret && redirectUri) {
+    return {
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uris: [redirectUri],
+    };
+  }
+
   const jsonPath = resolveClientJsonPath(env);
   if (!fs.existsSync(jsonPath)) {
-    throw new Error(`Non trovo il file credenziali OAuth JSON. Atteso in: ${jsonPath}`);
+    throw new Error(
+      `Non trovo il file credenziali OAuth JSON. Atteso in: ${jsonPath}. ` +
+      `In alternativa imposta GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET e GMAIL_REDIRECT_URI nelle ENV.`
+    );
   }
   const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   const conf = raw.installed || raw.web;
