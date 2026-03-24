@@ -647,15 +647,15 @@ function generateQuoteHTML(data) {
               <table cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" style="padding-bottom: 10px;">
-                    <font face="Arial, sans-serif" size="5" color="#ffffff" style="font-weight: bold; font-style: italic;">
-                      Eros Boncordo
+                    <font face="Arial, sans-serif" size="5" color="#ffffff" style="font-weight: bold; letter-spacing: 4px;">
+                      EMOTIVE
                     </font>
                   </td>
                 </tr>
                 <tr>
                   <td align="center" style="padding-bottom: 5px;">
                     <font face="Arial, sans-serif" size="2" color="#d4af37" style="font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">
-                      Lead Strategist • Protocollo EMOTIVE®
+                      Format &amp; Concept • Protocollo Architettonico EMOTIVE®
                     </font>
                   </td>
                 </tr>

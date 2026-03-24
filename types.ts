@@ -37,6 +37,8 @@ export interface ProjectState {
   leadCaptured?: boolean;
   leadCapturedAt?: string;
   leadNumber?: string;
+  /** ISO timestamp quando email+PDF sono stati inviati al cliente */
+  quotePdfSentAt?: string;
   
   // Stato
   isPaid: boolean;

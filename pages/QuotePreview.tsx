@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppView, ProjectState } from '../types';
 
 interface QuotePreviewProps {
@@ -8,12 +8,21 @@ interface QuotePreviewProps {
   setProjectState: React.Dispatch<React.SetStateAction<ProjectState>>;
 }
 
+const btnPrimaryClass =
+  'w-full md:w-auto rounded-full bg-gradient-to-br from-brand-gold via-amber-400 to-amber-600 text-black py-3.5 md:py-4 px-6 md:px-12 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-[0.18em] shadow-[0_10px_40px_rgba(212,175,55,0.35)] border border-white/25 hover:shadow-[0_14px_48px_rgba(212,175,55,0.45)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 disabled:opacity-45 disabled:shadow-none';
+
+const btnSecondaryClass =
+  'w-full md:w-auto rounded-full border-2 border-white/20 bg-white/[0.06] backdrop-blur-sm py-3.5 md:py-4 px-6 md:px-12 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-[0.18em] text-white/90 hover:border-brand-gold/60 hover:bg-white/10 active:scale-[0.98] transition-all duration-200';
+
 const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setProjectState }) => {
   const [isPaying, setIsPaying] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const projectRef = useRef(projectState);
+  projectRef.current = projectState;
+  const autoSendStartedRef = useRef(false);
   
   const vatRate = 0.22;
   const iban = "IT69J3609201600991466031460";
@@ -78,11 +87,14 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
     }
   };
 
-  const handleDownloadAndEmail = async () => {
-    const customerEmail = projectState.email || '';
+  const performSendQuoteEmail = useCallback(async () => {
+    const ps = projectRef.current;
+    const customerEmail = ps.email || '';
+    const nameForLead = `${ps.firstName} ${ps.lastName}`.trim();
+
     if (!customerEmail || !customerEmail.includes('@')) {
       setEmailStatus('error');
-      setEmailError('Email del cliente mancante o non valida.');
+      setEmailError('Email non valida. Torna indietro e controlla il campo email.');
       return;
     }
 
@@ -91,26 +103,27 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
     setEmailError(null);
 
     try {
-      // 1. Salva il lead nel database e Airtable solo se non già acquisito
-      if (!projectState.leadCaptured) {
+      if (!ps.leadCaptured) {
         const leadRes = await fetch('/api/leads/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            firstName: projectState.firstName,
-            lastName: projectState.lastName,
-            clientName: clientFullName,
+            firstName: ps.firstName,
+            lastName: ps.lastName,
+            clientName: nameForLead,
             email: customerEmail,
-            phone: projectState.phone,
-            businessType: projectState.businessType,
-            location: projectState.location,
-            squareMeters: projectState.squareMeters,
-            companyName: projectState.companyName,
-            vatNumber: projectState.vatNumber,
-            discountCode: projectState.discountCode,
-            referralCode: projectState.referralCode,
-            totalPrice: projectState.totalPrice,
-            depositPercentage: projectState.depositPercentage
+            phone: ps.phone,
+            businessType: ps.businessType,
+            location: ps.location,
+            squareMeters: ps.squareMeters,
+            companyName: ps.companyName,
+            vatNumber: ps.vatNumber,
+            address: ps.address,
+            projectDescription: ps.projectDescription,
+            discountCode: ps.discountCode,
+            referralCode: ps.referralCode,
+            totalPrice: ps.totalPrice,
+            depositPercentage: ps.depositPercentage,
           }),
         });
 
@@ -118,36 +131,41 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
           const text = await leadRes.text();
           console.warn('Errore salvataggio lead:', text);
         } else {
-          setProjectState({
-            ...projectState,
+          setProjectState((prev) => ({
+            ...prev,
             leadCaptured: true,
             leadCapturedAt: new Date().toISOString(),
-          });
+          }));
         }
       }
 
-      // 2. Invia l'email con PDF allegato
+      const depBase = ps.totalPrice * (ps.depositPercentage / 100);
+      const depTotal = depBase + depBase * vatRate;
+      const remBase = ps.totalPrice * (1 - ps.depositPercentage / 100);
+      const remTotal = remBase + remBase * vatRate;
+
       const emailRes = await fetch('/api/gmail/send-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           to: customerEmail,
-          firstName: projectState.firstName,
-          lastName: projectState.lastName,
-          clientName: clientFullName,
-          companyName: projectState.companyName,
-          vatNumber: projectState.vatNumber,
-          address: projectState.address,
-          businessType: projectState.businessType,
-          location: projectState.location,
-          squareMeters: projectState.squareMeters,
-          projectDescription: projectState.projectDescription,
-          discountCode: projectState.discountCode,
-          referralCode: projectState.referralCode,
-          totalPrice: projectState.totalPrice,
-          depositPercentage: projectState.depositPercentage,
-          depositTotal: depositTotal,
-          remainingTotal: remainingTotal
+          firstName: ps.firstName,
+          lastName: ps.lastName,
+          clientName: nameForLead,
+          companyName: ps.companyName,
+          vatNumber: ps.vatNumber,
+          address: ps.address,
+          phone: ps.phone,
+          businessType: ps.businessType,
+          location: ps.location,
+          squareMeters: ps.squareMeters,
+          projectDescription: ps.projectDescription,
+          discountCode: ps.discountCode,
+          referralCode: ps.referralCode,
+          totalPrice: ps.totalPrice,
+          depositPercentage: ps.depositPercentage,
+          depositTotal: depTotal,
+          remainingTotal: remTotal,
         }),
       });
 
@@ -156,6 +174,10 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
         throw new Error(text || 'Errore invio email.');
       }
 
+      setProjectState((prev) => ({
+        ...prev,
+        quotePdfSentAt: new Date().toISOString(),
+      }));
       setEmailStatus('sent');
     } catch (e: any) {
       console.error(e);
@@ -164,9 +186,30 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
     } finally {
       setIsPreparing(false);
     }
+  }, [setProjectState]);
+
+  useEffect(() => {
+    if (projectState.quotePdfSentAt) {
+      setEmailStatus('sent');
+      return;
+    }
+    if (!projectState.email?.includes('@')) {
+      setEmailStatus('error');
+      setEmailError('Email mancante. Torna al modulo e inserisci un indirizzo valido.');
+      return;
+    }
+    if (autoSendStartedRef.current) return;
+    autoSendStartedRef.current = true;
+    void performSendQuoteEmail();
+  }, [projectState.quotePdfSentAt, projectState.email, performSendQuoteEmail]);
+
+  const handleResendEmail = () => {
+    void performSendQuoteEmail();
   };
 
   const handleEditQuote = () => {
+    autoSendStartedRef.current = false;
+    setProjectState((prev) => ({ ...prev, quotePdfSentAt: undefined }));
     setView(AppView.CREATE_QUOTE);
   };
 
@@ -182,26 +225,34 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
                 <h2 className="text-2xl md:text-5xl font-black serif italic leading-tight">
                   Il tuo preventivo è pronto, <br/> <span className="text-brand-gold">{clientFullName}</span>
                 </h2>
-                <p className="text-gray-400 text-sm max-w-xl font-light">
-                  Puoi inviarlo via email al cliente o procedere direttamente con il pagamento tramite Stripe.
+                <p className="text-gray-400 text-sm max-w-xl font-light leading-relaxed">
+                  {emailStatus === 'sending' || isPreparing
+                    ? 'Stiamo inviando il preventivo completo con PDF all’indirizzo email che hai indicato. Attendi qualche secondo.'
+                    : emailStatus === 'sent'
+                      ? `Abbiamo inviato il preventivo con PDF a ${projectState.email}. Controlla anche la cartella spam. Puoi procedere con l’acconto (Stripe o bonifico) quando preferisci.`
+                      : emailStatus === 'error'
+                        ? 'Non siamo riusciti a inviare l’email automaticamente. Usa il pulsante qui sotto per riprovare.'
+                        : 'Al termine della compilazione il preventivo viene inviato automaticamente alla tua email con PDF allegato. Qui sotto puoi pagare l’acconto o modificare i dati prima dell’invio.'}
                 </p>
               </div>
               <div className="flex flex-col gap-4 w-full md:w-auto">
                  <button 
+                    type="button"
                     onClick={handleEditQuote}
-                    className="w-full md:w-auto border border-white/10 hover:border-brand-gold py-3 md:py-4 px-5 md:px-10 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-widest transition-all"
+                    className={btnSecondaryClass}
                  >
-                    Modifica Preventivo
+                    Modifica dati
                  </button>
                  <button 
-                    onClick={handleDownloadAndEmail}
+                    type="button"
+                    onClick={handleResendEmail}
                     disabled={isPreparing}
-                    className="w-full md:w-auto bg-brand-gold text-black py-3 md:py-4 px-5 md:px-10 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-white transition-all disabled:opacity-50"
+                    className={btnPrimaryClass}
                  >
-                    {isPreparing ? 'INVIO IN CORSO...' : 'Invia Email con PDF'}
+                    {isPreparing ? 'Invio in corso…' : emailStatus === 'sent' ? 'Reinvia email con PDF' : 'Invia di nuovo il PDF'}
                  </button>
                  {emailStatus === 'sent' && (
-                   <p className="text-[10px] text-green-400 font-black uppercase tracking-widest">✓ Email inviata con successo</p>
+                   <p className="text-[10px] text-green-400 font-black uppercase tracking-widest">✓ Preventivo inviato alla tua email</p>
                  )}
                  {emailStatus === 'error' && (
                    <p className="text-[10px] text-red-300 font-black uppercase tracking-widest">{emailError || 'Errore invio email.'}</p>
@@ -221,8 +272,8 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
             {/* Quote Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-10 md:mb-24 pl-10 sm:pl-14 md:pl-20">
               <div className="space-y-1">
-                <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.18em] md:tracking-[0.5em] text-brand-gold">Lead Strategist</p>
-                <p className="text-lg md:text-xl font-black uppercase tracking-tight md:tracking-tighter">Eros Boncordo</p>
+                <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.18em] md:tracking-[0.5em] text-brand-gold">Team progettazione</p>
+                <p className="text-lg md:text-xl font-black uppercase tracking-tight md:tracking-tighter">EMOTIVE®</p>
                 <p className="text-[9px] md:text-[10px] text-gray-500 italic uppercase tracking-[0.1em] md:tracking-widest">Protocollo Architettonico E.M.O.T.I.V.E.®</p>
               </div>
               <div className="text-left sm:text-right">
@@ -389,9 +440,10 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
                         <p className="text-2xl font-black text-brand-dark">€ {depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Link pagamento Stripe valido 24 ore</p>
                         <button
+                          type="button"
                           onClick={handleStripePayment}
                           disabled={isPaying}
-                          className="w-full bg-brand-dark text-white py-4 text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold hover:text-black transition-all disabled:opacity-50"
+                          className="w-full rounded-2xl bg-brand-dark text-white py-4 text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-brand-gold hover:text-black transition-all disabled:opacity-50"
                         >
                           {isPaying ? 'REINDIRIZZAMENTO...' : 'PAGA ORA →'}
                         </button>
@@ -445,19 +497,21 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
         <div className="bg-[#050505] p-6 md:p-16 flex flex-col md:flex-row justify-between items-center gap-6 md:gap-12 no-print border border-white/10 shadow-[0_0_120px_rgba(0,0,0,0.6)]">
            <div className="space-y-4 text-center md:text-left">
               <h4 className="text-2xl md:text-3xl font-black serif italic text-brand-gold tracking-tight">Inizia il tuo percorso oggi.</h4>
-              <p className="text-gray-400 text-sm max-w-sm font-light">Eros Boncordo gestirà personalmente la strategia del tuo locale per massimizzare il ROI del design.</p>
+              <p className="text-gray-400 text-sm max-w-sm font-light">Il team EMOTIVE® segue la strategia del tuo locale per massimizzare il ROI del design, con continuità operativa fino all’arredo.</p>
            </div>
            <div className="flex flex-col sm:flex-row gap-8 w-full md:w-auto">
               <button 
+                type="button"
                 onClick={handleStripePayment}
                 disabled={isPaying}
-                className="bg-white text-black py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-brand-gold transition-all active:scale-95 shadow-2xl"
+                className="rounded-2xl bg-white text-black py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-brand-gold transition-all active:scale-95 shadow-xl"
               >
                 {isPaying ? 'ATTENDERE...' : `PAGA €${depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
               </button>
               <button 
+                type="button"
                 onClick={() => setView(AppView.SUCCESS)} 
-                className="border border-white/20 text-white py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-white/10 transition-all active:scale-95"
+                className="rounded-2xl border-2 border-white/25 text-white py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-white/10 transition-all active:scale-95"
               >
                 HO GIÀ FATTO IL BONIFICO
               </button>

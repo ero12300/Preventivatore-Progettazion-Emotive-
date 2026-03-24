@@ -51,7 +51,9 @@ const PARTNERS_TABLE = (process.env.PARTNERS_TABLE || 'partners').trim();
 const PARTNER_REFERRALS_TABLE = (process.env.PARTNER_REFERRALS_TABLE || 'partner_referrals').trim();
 const PARTNER_COMMISSIONS_TABLE = (process.env.PARTNER_COMMISSIONS_TABLE || 'partner_commissions').trim();
 const ADMIN_PRICING_SECRET = (process.env.ADMIN_PRICING_SECRET || '').trim();
-const LEAD_NOTIFICATION_EMAIL = (process.env.LEAD_NOTIFICATION_EMAIL || 'amm.emotivegroup@gmail.com').trim();
+const LEAD_NOTIFICATION_EMAIL = String(process.env.LEAD_NOTIFICATION_EMAIL || 'amm.emotivegroup@gmail.com')
+  .trim()
+  .replace(/\r?\n/g, '');
 
 let airtableBase = null;
 if (AIRTABLE_TOKEN && AIRTABLE_BASE_ID) {
@@ -1776,6 +1778,30 @@ app.post('/api/gmail/send-quote', async (req, res) => {
 
     console.log(`✅ Email HTML + PDF inviata! ID: ${data.id}`);
     console.log(`📧 Controlla la casella di ${to}`);
+
+    if (isValidEmail(LEAD_NOTIFICATION_EMAIL)) {
+      try {
+        await sendGmailText({
+          env: process.env,
+          to: LEAD_NOTIFICATION_EMAIL,
+          subject: `[Interno] Preventivo inviato al cliente - ${quoteNumber}`,
+          text:
+            `Il preventivo completo (HTML + PDF) e stato inviato al cliente.\n\n` +
+            `Preventivo: ${quoteNumber}\n` +
+            `Cliente: ${fullName || 'n/d'}\n` +
+            `Email cliente: ${to}\n` +
+            `Tipologia: ${businessType || 'n/d'}\n` +
+            `Localita: ${location || 'n/d'}\n` +
+            `Mq: ${squareMeters || 'n/d'}\n` +
+            `Totale progetto (ex IVA): EUR ${Number(effectiveTotalPrice || 0).toFixed(2)}\n` +
+            `Codice referral: ${referralCodeForTracking || 'n/d'}\n` +
+            `Gmail message id: ${data.id || 'n/d'}\n`,
+        });
+        console.log(`✅ Notifica interna invio preventivo a ${LEAD_NOTIFICATION_EMAIL}`);
+      } catch (internalErr) {
+        console.warn('⚠️ Notifica interna post-invio preventivo non inviata:', internalErr?.message || internalErr);
+      }
+    }
     
     res.json({ ok: true, id: data.id, preventivoId: preventivo.id, quoteNumber, conceptVariant });
   } catch (err) {
@@ -1818,6 +1844,9 @@ app.post('/api/leads/save', async (req, res) => {
       manualOverridePrice: null,
       isAdminOverride: false,
     });
+    const referralCodeForTracking =
+      dynamicPricing.appliedReferralCode ||
+      (typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '');
     const effectiveTotalPrice = Number(dynamicPricing.finalPriceExVat || totalPrice || 0);
     const effectiveDepositPercentage = Number(depositPercentage || 30);
     const depositBase = effectiveTotalPrice * (effectiveDepositPercentage / 100);
