@@ -3,7 +3,10 @@ export enum AppView {
   HOME = 'home',
   CREATE_QUOTE = 'create-quote',
   QUOTE_PREVIEW = 'quote-preview',
-  SUCCESS = 'success'
+  SUCCESS = 'success',
+  ADMIN_PRICING = 'admin-pricing',
+  AUTH_PORTAL = 'auth-portal',
+  PARTNER_DASHBOARD = 'partner-dashboard'
 }
 
 export interface ProjectState {
@@ -25,6 +28,12 @@ export interface ProjectState {
   // Prezzo Personalizzato
   totalPrice: number; // Prezzo totale del progetto
   depositPercentage: number; // Percentuale acconto (default 30%)
+  pricingRuleId?: string;
+  pricingRuleLabel?: string;
+  appliedDiscountCode?: string;
+  appliedReferralCode?: string;
+  discountCode?: string;
+  referralCode?: string;
   
   // Stato
   isPaid: boolean;
@@ -34,3 +43,5 @@ export interface NavProps {
   currentView: AppView;
   setView: (view: AppView) => void;
 }
+
+export type UserRole = 'admin' | 'partner' | 'unknown';

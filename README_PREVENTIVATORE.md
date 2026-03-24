@@ -652,6 +652,21 @@ npm install puppeteer
 - Dati pagamento/IBAN: `server/index.cjs` + `server/pdf-generator.cjs`
 - Tabella cloud: `supabase/schema.sql`
 - Endpoint backend: `server/index.cjs` (in Vercel passa da `api/index.cjs`)
+- Auth frontend (magic link): `lib/supabase.ts` + `pages/AuthPortal.tsx`
+- Admin pricing protetto: `pages/AdminPricing.tsx` + endpoint `/api/admin/*`
+- Dashboard partner: `pages/PartnerDashboard.tsx`
+
+### Setup Auth + Partner Portal (nuovo)
+
+1. Esegui migrazione pricing dinamico:
+   - `supabase/migration_dynamic_pricing_engine.sql`
+2. Esegui migrazione auth/partner:
+   - `supabase/migration_auth_partner_portal.sql`
+3. Aggiungi in `.env.local`:
+   - `VITE_SUPABASE_URL=...`
+   - `VITE_SUPABASE_ANON_KEY=...`
+   - `ADMIN_PRICING_SECRET=...`
+4. Login magic link in `#auth-portal`, poi assegna ruolo in `public.user_profiles`.
 
 ---
 

@@ -587,7 +587,7 @@ function generateQuoteHTML(data) {
                           </font>
                           <br>
                           <font face="Arial, sans-serif" size="2" color="#666666" style="line-height: 1.6;">
-                            L'importo pagato viene completamente scalato dall'acquisto arredi Boncordo
+                            L'importo viene scalato dal preventivo di BONCORDO | Arredi Commerciali
                           </font>
                         </td>
                       </tr>

@@ -106,6 +106,8 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
           squareMeters: projectState.squareMeters,
           companyName: projectState.companyName,
           vatNumber: projectState.vatNumber,
+          discountCode: projectState.discountCode,
+          referralCode: projectState.referralCode,
           totalPrice: projectState.totalPrice,
           depositPercentage: projectState.depositPercentage
         }),
@@ -132,6 +134,8 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
           location: projectState.location,
           squareMeters: projectState.squareMeters,
           projectDescription: projectState.projectDescription,
+          discountCode: projectState.discountCode,
+          referralCode: projectState.referralCode,
           totalPrice: projectState.totalPrice,
           depositPercentage: projectState.depositPercentage,
           depositTotal: depositTotal,
@@ -159,15 +163,15 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f1f1] py-32 px-6">
-      <div className="max-w-5xl mx-auto space-y-12 animate-reveal">
+    <div className="min-h-screen bg-[#f1f1f1] py-20 md:py-32 px-3 sm:px-4 md:px-6">
+      <div className="max-w-5xl mx-auto space-y-6 md:space-y-12 animate-reveal">
         
         {/* Header Actions */}
-        <div className="bg-brand-dark text-white p-12 md:p-16 border-l-8 border-brand-gold shadow-2xl no-print">
+        <div className="bg-brand-dark text-white p-5 sm:p-6 md:p-16 border-l-4 md:border-l-8 border-brand-gold shadow-2xl no-print">
            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
               <div className="space-y-4">
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-gold">Preventivo Generato</span>
-                <h2 className="text-3xl md:text-5xl font-black serif italic leading-tight">
+                <span className="text-[10px] font-black uppercase tracking-[0.18em] md:tracking-[0.5em] text-brand-gold">Preventivo Generato</span>
+                <h2 className="text-2xl md:text-5xl font-black serif italic leading-tight">
                   Il tuo preventivo è pronto, <br/> <span className="text-brand-gold">{clientFullName}</span>
                 </h2>
                 <p className="text-gray-400 text-sm max-w-xl font-light">
@@ -177,14 +181,14 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
               <div className="flex flex-col gap-4 w-full md:w-auto">
                  <button 
                     onClick={handleEditQuote}
-                    className="w-full md:w-auto border border-white/10 hover:border-brand-gold py-4 px-10 text-[10px] font-black uppercase tracking-widest transition-all"
+                    className="w-full md:w-auto border border-white/10 hover:border-brand-gold py-3 md:py-4 px-5 md:px-10 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-widest transition-all"
                  >
                     Modifica Preventivo
                  </button>
                  <button 
                     onClick={handleDownloadAndEmail}
                     disabled={isPreparing}
-                    className="w-full md:w-auto bg-brand-gold text-black py-4 px-10 text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all disabled:opacity-50"
+                    className="w-full md:w-auto bg-brand-gold text-black py-3 md:py-4 px-5 md:px-10 text-[10px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-white transition-all disabled:opacity-50"
                  >
                     {isPreparing ? 'INVIO IN CORSO...' : 'Invia Email con PDF'}
                  </button>
@@ -199,37 +203,37 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
         </div>
 
         {/* Formal Paper Container (The Proposal) */}
-        <div className="bg-white pdf-shadow p-12 md:p-24 relative overflow-hidden blueprint-bg border border-gray-100 pdf-container text-brand-dark">
-          <div className="absolute top-12 left-12 flex flex-col items-center opacity-30">
+        <div className="bg-white pdf-shadow p-5 sm:p-6 md:p-24 relative overflow-hidden blueprint-bg border border-gray-100 pdf-container text-brand-dark">
+          <div className="absolute top-5 left-5 md:top-12 md:left-12 flex flex-col items-center opacity-20 md:opacity-30">
             <div className="w-3 h-3 bg-brand-gold mb-3"></div>
-            <span className="font-black text-3xl tracking-tighter uppercase [writing-mode:vertical-lr] rotate-180">EMOTIVE</span>
+            <span className="font-black text-xl md:text-3xl tracking-tight md:tracking-tighter uppercase [writing-mode:vertical-lr] rotate-180">EMOTIVE</span>
           </div>
 
           <div className="relative z-10">
             {/* Quote Header */}
-            <div className="flex justify-between items-start mb-24 pl-20">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-10 md:mb-24 pl-10 sm:pl-14 md:pl-20">
               <div className="space-y-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-brand-gold">Lead Strategist</p>
-                <p className="text-xl font-black uppercase tracking-tighter">Eros Boncordo</p>
-                <p className="text-[10px] text-gray-500 italic uppercase tracking-widest">Protocollo Architettonico E.M.O.T.I.V.E.®</p>
+                <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.18em] md:tracking-[0.5em] text-brand-gold">Lead Strategist</p>
+                <p className="text-lg md:text-xl font-black uppercase tracking-tight md:tracking-tighter">Eros Boncordo</p>
+                <p className="text-[9px] md:text-[10px] text-gray-500 italic uppercase tracking-[0.1em] md:tracking-widest">Protocollo Architettonico E.M.O.T.I.V.E.®</p>
               </div>
-              <div className="text-right">
-                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-gray-300 mb-2">Ref. Proposta</p>
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.16em] md:tracking-[0.5em] text-gray-300 mb-2">Ref. Proposta</p>
                 <p className="text-sm font-bold uppercase">#EM-{Math.floor(Math.random()*9000)+1000}</p>
                 <p className="text-[9px] text-gray-400 mt-2">{new Date().toLocaleDateString('it-IT')}</p>
               </div>
             </div>
 
             {/* Client Info */}
-            <div className="grid md:grid-cols-2 gap-20 mb-24 pl-20 md:pl-0">
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-300 border-b border-gray-50 pb-3">Committente</h3>
+            <div className="grid md:grid-cols-2 gap-8 md:gap-20 mb-10 md:mb-24 pl-10 sm:pl-14 md:pl-0">
+              <div className="space-y-4 md:space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.16em] md:tracking-[0.4em] text-gray-300 border-b border-gray-50 pb-3">Committente</h3>
                 <div className="space-y-2">
-                  <p className="text-4xl font-black serif italic tracking-tighter">{clientFullName}</p>
+                  <p className="text-3xl md:text-4xl font-black serif italic tracking-tight md:tracking-tighter">{clientFullName}</p>
                   {projectState.companyName && (
                     <p className="text-sm text-gray-600 font-bold">{projectState.companyName}</p>
                   )}
-                  <p className="text-xs text-gray-400 tracking-[0.2em] uppercase">
+                  <p className="text-xs text-gray-400 tracking-[0.08em] md:tracking-[0.2em] uppercase">
                     {projectState.businessType} / {projectState.location}
                   </p>
                   {projectState.squareMeters && (
@@ -247,15 +251,15 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
                   )}
                 </div>
               </div>
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-300 border-b border-gray-50 pb-3">Investimento Totale Protocollo</h3>
+              <div className="space-y-4 md:space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.16em] md:tracking-[0.4em] text-gray-300 border-b border-gray-50 pb-3">Investimento Totale Protocollo</h3>
                 <div className="space-y-3">
                   <div className="flex items-baseline gap-4">
                     <span className="text-2xl line-through text-gray-300">€ {(totalPrice * 1.5).toLocaleString('it-IT', { minimumFractionDigits: 0 })}</span>
                     <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded">-33%</span>
                   </div>
                   <div className="flex items-baseline gap-4">
-                    <span className="text-5xl font-black text-brand-gold tracking-tighter">
+                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-brand-gold tracking-tight md:tracking-tighter">
                       € {totalPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
                       <span className="text-[10px] font-light text-gray-400 uppercase tracking-widest ml-2">+ IVA</span>
                     </span>
@@ -279,13 +283,13 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
             )}
 
             {/* Steps Breakdown */}
-            <div className="space-y-24 mb-24">
+            <div className="space-y-12 md:space-y-24 mb-10 md:mb-24">
                <div className="relative">
-                  <div className="flex items-center justify-between border-b border-brand-gold/20 pb-4 mb-8">
-                    <span className="text-[11px] font-black uppercase tracking-[0.6em] text-brand-gold">FASE A: RILIEVI E IMPIANTI</span>
-                    <span className="text-[9px] text-gray-400 font-bold uppercase italic tracking-widest">Attivabile con Acconto {depositPercentage}%</span>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-brand-gold/20 pb-4 mb-5 md:mb-8 gap-2">
+                    <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.6em] text-brand-gold">FASE A: RILIEVI E IMPIANTI</span>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase italic tracking-[0.08em] md:tracking-widest">Attivabile con Acconto {depositPercentage}%</span>
                   </div>
-                  <div className="pl-6">
+                  <div className="pl-2 md:pl-6">
                      <ul className="space-y-4 list-none text-sm text-gray-700 font-normal leading-relaxed">
                         <li className="flex gap-4 items-start">
                           <span className="text-brand-gold font-black text-lg min-w-[30px]">1.</span>
@@ -304,10 +308,10 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
                </div>
 
                <div className="relative">
-                  <div className="flex items-center justify-between border-b border-brand-gold/20 pb-4 mb-8">
-                    <span className="text-[11px] font-black uppercase tracking-[0.6em] text-brand-gold">FASE B: CONCEPT E RENDER</span>
+                  <div className="flex items-center justify-between border-b border-brand-gold/20 pb-4 mb-5 md:mb-8">
+                    <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.15em] md:tracking-[0.6em] text-brand-gold">FASE B: CONCEPT E RENDER</span>
                   </div>
-                  <div className="pl-6">
+                  <div className="pl-2 md:pl-6">
                      <ul className="space-y-4 list-none text-sm text-gray-700 font-normal leading-relaxed">
                         <li className="flex gap-4 items-start">
                           <span className="text-brand-gold font-black text-lg min-w-[30px]">4.</span>
@@ -331,8 +335,8 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
             </div>
 
             {/* Politiche di Revisione */}
-            <div className="bg-[#fffbf0] p-12 border-l-4 border-brand-gold mb-24">
-               <h4 className="text-[11px] font-black uppercase tracking-[0.6em] text-brand-dark mb-8 text-center">Politiche di Revisione</h4>
+            <div className="bg-[#fffbf0] p-5 md:p-12 border-l-4 border-brand-gold mb-10 md:mb-24">
+               <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.16em] md:tracking-[0.6em] text-brand-dark mb-6 md:mb-8 text-center">Politiche di Revisione</h4>
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="bg-white p-6 border border-gray-100 rounded-sm">
                      <div className="flex items-center gap-3 mb-4">
@@ -367,12 +371,12 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
             </div>
 
             {/* Payment & Activation */}
-            <div className="bg-[#fafafa] p-12 border border-gray-100 mb-24">
-               <h4 className="text-[11px] font-black uppercase tracking-[0.6em] text-brand-dark mb-10 text-center">Protocollo di Attivazione Immediata</h4>
-               <div className="grid md:grid-cols-2 gap-16">
+            <div className="bg-[#fafafa] p-5 md:p-12 border border-gray-100 mb-10 md:mb-24">
+               <h4 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.16em] md:tracking-[0.6em] text-brand-dark mb-6 md:mb-10 text-center">Protocollo di Attivazione Immediata</h4>
+               <div className="grid md:grid-cols-2 gap-8 md:gap-16">
                   <div className="space-y-6">
                      <p className="text-[10px] font-black uppercase text-brand-gold tracking-[0.4em] mb-4">Metodo 01: Stripe Secure</p>
-                     <div className="bg-white p-8 border border-gray-100 rounded-sm space-y-4 shadow-sm">
+                     <div className="bg-white p-5 md:p-8 border border-gray-100 rounded-sm space-y-4 shadow-sm">
                         <p className="text-[9px] text-gray-400 uppercase tracking-widest">Acconto attivazione {depositPercentage}% + IVA 22%</p>
                         <p className="text-2xl font-black text-brand-dark">€ {depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Link pagamento Stripe valido 24 ore</p>
@@ -392,7 +396,7 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
                   </div>
                   <div className="space-y-6">
                      <p className="text-[10px] font-black uppercase text-brand-gold tracking-[0.4em] mb-4">Metodo 02: Bonifico Istantaneo</p>
-                     <div className="bg-white p-8 border border-gray-100 rounded-sm space-y-4 shadow-sm">
+                     <div className="bg-white p-5 md:p-8 border border-gray-100 rounded-sm space-y-4 shadow-sm">
                         <p className="text-[9px] text-gray-400 uppercase tracking-widest">IBAN Emotive S.r.l.</p>
                         <p className="text-sm font-mono font-bold select-all tracking-tighter">{iban}</p>
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest">Intestato a Emotive Srl</p>
@@ -403,26 +407,26 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
             </div>
 
             {/* Totals Section */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-12 pt-16 border-t-2 border-brand-dark/5">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 md:gap-12 pt-8 md:pt-16 border-t-2 border-brand-dark/5">
                <div className="space-y-3 text-center md:text-left">
-                  <p className="text-[11px] font-black uppercase tracking-[0.5em] text-gray-300">Investimento Protocollo EMOTIVE®</p>
+                  <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.14em] md:tracking-[0.5em] text-gray-300">Investimento Protocollo EMOTIVE®</p>
                   <div className="flex items-center gap-4 justify-center md:justify-start">
                      <p className="text-2xl line-through text-gray-300 serif italic">€ {(totalPrice * 1.5).toLocaleString('it-IT', { minimumFractionDigits: 0 })}</p>
                      <div className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded uppercase">Sconto -33%</div>
                   </div>
                   <div className="flex items-baseline gap-4 justify-center md:justify-start">
-                     <p className="text-6xl font-black serif italic tracking-tighter text-brand-gold">€ {totalPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                     <p className="text-4xl sm:text-5xl md:text-6xl font-black serif italic tracking-tight md:tracking-tighter text-brand-gold">€ {totalPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                      <p className="text-sm font-light text-gray-400 uppercase tracking-widest">+ IVA</p>
                   </div>
                   <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 mt-4 max-w-md">
                      <p className="text-[10px] font-black text-yellow-700 uppercase tracking-wider">⏰ Offerta valida 15 giorni</p>
                   </div>
-                  <p className="text-[9px] text-brand-gold font-bold uppercase tracking-widest italic mt-2">Stornabile 100% in caso di acquisto arredi Boncordo</p>
+                  <p className="text-[9px] text-brand-gold font-bold uppercase tracking-widest italic mt-2">L'importo viene scalato dal preventivo di BONCORDO | Arredi Commerciali</p>
                </div>
-               <div className="bg-brand-dark text-white p-12 min-w-[360px] shadow-2xl relative overflow-hidden text-center transform scale-105">
+               <div className="w-full md:w-auto bg-brand-dark text-white p-6 md:p-12 md:min-w-[360px] shadow-2xl relative overflow-hidden text-center md:transform md:scale-105">
                   <div className="absolute top-0 right-0 w-2 h-full bg-brand-gold"></div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.5em] text-brand-gold mb-6 italic">Quota Attivazione ({depositPercentage}% + IVA)</p>
-                  <p className="text-5xl font-black text-brand-gold tracking-tighter">€ {depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.14em] md:tracking-[0.5em] text-brand-gold mb-4 md:mb-6 italic">Quota Attivazione ({depositPercentage}% + IVA)</p>
+                  <p className="text-4xl md:text-5xl font-black text-brand-gold tracking-tight md:tracking-tighter">€ {depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-6 font-bold">Inizio lavori entro 24 ore dal saldo acconto</p>
                </div>
             </div>
@@ -430,22 +434,22 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
         </div>
 
         {/* Footer CTA no-print */}
-        <div className="bg-[#050505] p-16 flex flex-col md:flex-row justify-between items-center gap-12 no-print border border-white/10 shadow-[0_0_120px_rgba(0,0,0,0.6)]">
+        <div className="bg-[#050505] p-6 md:p-16 flex flex-col md:flex-row justify-between items-center gap-6 md:gap-12 no-print border border-white/10 shadow-[0_0_120px_rgba(0,0,0,0.6)]">
            <div className="space-y-4 text-center md:text-left">
-              <h4 className="text-3xl font-black serif italic text-brand-gold tracking-tight">Inizia il tuo percorso oggi.</h4>
+              <h4 className="text-2xl md:text-3xl font-black serif italic text-brand-gold tracking-tight">Inizia il tuo percorso oggi.</h4>
               <p className="text-gray-400 text-sm max-w-sm font-light">Eros Boncordo gestirà personalmente la strategia del tuo locale per massimizzare il ROI del design.</p>
            </div>
            <div className="flex flex-col sm:flex-row gap-8 w-full md:w-auto">
               <button 
                 onClick={handleStripePayment}
                 disabled={isPaying}
-                className="bg-white text-black py-8 px-16 text-[11px] font-black uppercase tracking-widest hover:bg-brand-gold transition-all active:scale-95 shadow-2xl"
+                className="bg-white text-black py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-brand-gold transition-all active:scale-95 shadow-2xl"
               >
                 {isPaying ? 'ATTENDERE...' : `PAGA €${depositTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
               </button>
               <button 
                 onClick={() => setView(AppView.SUCCESS)} 
-                className="border border-white/20 text-white py-8 px-16 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95"
+                className="border border-white/20 text-white py-4 md:py-8 px-6 md:px-16 text-[10px] md:text-[11px] font-black uppercase tracking-[0.12em] md:tracking-widest hover:bg-white/10 transition-all active:scale-95"
               >
                 HO GIÀ FATTO IL BONIFICO
               </button>

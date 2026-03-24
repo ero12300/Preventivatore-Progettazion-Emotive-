@@ -11,6 +11,10 @@ interface CreateQuoteProps {
 const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setProjectState }) => {
   const [formStep, setFormStep] = useState(1);
   const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [discountCode, setDiscountCode] = useState(projectState.discountCode || '');
+  const [referralCode, setReferralCode] = useState(projectState.referralCode || '');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     (projectState.businessType || '')
       .split(',')
@@ -95,39 +99,90 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
     setView(AppView.QUOTE_PREVIEW);
   };
 
-  const isStep1Valid = selectedCategories.length > 0 && projectState.location;
+  const calculatePriceFromMq = async (opts?: { silent?: boolean }) => {
+    const squareMeters = Number(projectState.squareMeters || 0);
+    if (!Number.isFinite(squareMeters) || squareMeters <= 0) {
+      if (!opts?.silent) {
+        setPricingError('Inserisci una metratura valida maggiore di 0.');
+      }
+      return false;
+    }
+
+    setPricingLoading(true);
+    setPricingError(null);
+    try {
+      const response = await fetch('/api/pricing/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          squareMeters: projectState.squareMeters,
+          discountCode: (projectState.discountCode || discountCode).trim() || undefined,
+          referralCode: (projectState.referralCode || referralCode).trim() || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || 'Errore calcolo prezzo automatico.');
+      }
+      setProjectState({
+        ...projectState,
+        totalPrice: Number(data.finalPriceExVat || 0),
+        pricingRuleId: data.pricingRuleId || undefined,
+        pricingRuleLabel: data.pricingRuleName || undefined,
+        appliedDiscountCode: data.appliedDiscountCode || undefined,
+        appliedReferralCode: data.appliedReferralCode || undefined,
+        discountCode: discountCode.trim() || undefined,
+        referralCode: referralCode.trim() || undefined,
+      });
+      return true;
+    } catch (err: any) {
+      setPricingError(err?.message || 'Errore calcolo prezzo automatico.');
+      return false;
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+
+  const goToStep2 = async () => {
+    const ok = await calculatePriceFromMq();
+    if (ok) {
+      setFormStep(2);
+    }
+  };
+
+  const isStep1Valid = selectedCategories.length > 0 && projectState.location && Number(projectState.squareMeters || 0) > 0;
   const isStep2Valid = projectState.firstName && projectState.lastName && projectState.email;
   const isStep3Valid = projectState.totalPrice > 0;
 
   return (
-    <div className="min-h-screen bg-[#050505] pt-32 pb-40 px-6">
+    <div className="min-h-screen bg-[#050505] pt-24 md:pt-32 pb-16 md:pb-40 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
         
         {/* Header */}
-        <div className="mb-20 text-center space-y-8">
+        <div className="mb-10 md:mb-20 text-center space-y-5 md:space-y-8">
           <div className="flex items-center justify-center gap-4">
-            <div className="w-16 h-[1px] bg-brand-gold"></div>
-            <span className="text-[11px] font-black uppercase tracking-[0.5em] text-brand-gold">Crea Preventivo</span>
-            <div className="w-16 h-[1px] bg-brand-gold"></div>
+            <div className="w-10 md:w-16 h-[1px] bg-brand-gold"></div>
+            <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.25em] md:tracking-[0.5em] text-brand-gold">Crea Preventivo</span>
+            <div className="w-10 md:w-16 h-[1px] bg-brand-gold"></div>
           </div>
-          <h1 className="text-5xl md:text-7xl font-black serif leading-tight text-white italic tracking-tighter">
+          <h1 className="text-3xl sm:text-4xl md:text-7xl font-black serif leading-tight text-white italic tracking-tight md:tracking-tighter">
             Genera il tuo <br/> <span className="text-brand-gold">Preventivo EMOTIVE.</span>
           </h1>
-          <p className="text-xl text-gray-400 font-light max-w-2xl mx-auto leading-relaxed italic">
+          <p className="text-base md:text-xl text-gray-400 font-light max-w-2xl mx-auto leading-relaxed italic">
             Inserisci i dati del cliente, personalizza il prezzo e genera un preventivo professionale.
           </p>
         </div>
 
         {/* Form Container */}
-        <div className="bg-[#0a0a0a] p-10 md:p-20 shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-brand-gold/40">
+        <div className="bg-[#0a0a0a] p-5 sm:p-6 md:p-20 shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-brand-gold/40">
           <div className="absolute top-0 right-0 w-1 h-full bg-brand-gold"></div>
           
-          <div className="mb-16 flex justify-between items-end border-b border-white/5 pb-10">
+          <div className="mb-8 md:mb-16 flex justify-between items-end border-b border-white/5 pb-5 md:pb-10 gap-4">
             <div className="space-y-2">
-              <h2 className="text-4xl font-black serif italic text-white leading-none">Nuovo Preventivo</h2>
-              <p className="text-[10px] text-gray-500 uppercase tracking-[0.5em] font-bold">Protocollo EMOTIVE®</p>
+              <h2 className="text-2xl md:text-4xl font-black serif italic text-white leading-none">Nuovo Preventivo</h2>
+              <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em] md:tracking-[0.5em] font-bold">Protocollo EMOTIVE®</p>
             </div>
-            <div className="text-[11px] font-black text-brand-gold tracking-[0.3em] uppercase bg-brand-gold/10 px-6 py-2">
+            <div className="text-[10px] md:text-[11px] font-black text-brand-gold tracking-[0.15em] md:tracking-[0.3em] uppercase bg-brand-gold/10 px-3 md:px-6 py-2">
               0{formStep} / 03
             </div>
           </div>
@@ -224,14 +279,47 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                   </div>
                   <div className="space-y-6">
                     <label className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold block opacity-70">
-                      Superficie (MQ) <span className="text-gray-500 font-normal">(opzionale)</span>
+                      Superficie (MQ) <span className="text-white font-normal">(obbligatorio)</span>
                     </label>
                     <input 
                       type="number" 
+                      required
+                      min="1"
                       placeholder="es. 120" 
                       value={projectState.squareMeters || ''} 
-                      onChange={e => setProjectState({...projectState, squareMeters: e.target.value})} 
+                      onChange={e => setProjectState({...projectState, squareMeters: e.target.value})}
+                      onBlur={() => { void calculatePriceFromMq({ silent: true }); }}
                       className="w-full bg-white/5 border-b border-white/20 p-6 text-white outline-none font-light" 
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <label className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold block opacity-70">
+                    Incentivi Commerciali <span className="text-gray-500 font-normal">(opzionale)</span>
+                  </label>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <input
+                      type="text"
+                      placeholder="Codice sconto"
+                      value={discountCode}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setDiscountCode(value);
+                        setProjectState({ ...projectState, discountCode: value });
+                      }}
+                      className="w-full bg-white/5 border-b border-white/20 p-4 text-sm focus:border-brand-gold transition-all text-white outline-none font-light"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Codice referral"
+                      value={referralCode}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setReferralCode(value);
+                        setProjectState({ ...projectState, referralCode: value });
+                      }}
+                      className="w-full bg-white/5 border-b border-white/20 p-4 text-sm focus:border-brand-gold transition-all text-white outline-none font-light"
                     />
                   </div>
                 </div>
@@ -254,12 +342,15 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                 
                 <button 
                   type="button" 
-                  onClick={() => setFormStep(2)} 
-                  disabled={!isStep1Valid} 
-                  className="w-full btn-emotive-primary !py-8 !text-[11px] !text-black shadow-2xl mt-6 disabled:opacity-30"
+                  onClick={goToStep2}
+                  disabled={!isStep1Valid || pricingLoading} 
+                  className="w-full btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black shadow-2xl mt-4 md:mt-6 disabled:opacity-30"
                 >
-                  Prosegui - Dati Cliente
+                  {pricingLoading ? 'CALCOLO PREZZO...' : 'Prosegui - Dati Cliente'}
                 </button>
+                {pricingError && (
+                  <p className="text-red-300 text-xs font-semibold">{pricingError}</p>
+                )}
               </div>
             )}
 
@@ -371,7 +462,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                   <button 
                     type="button" 
                     onClick={() => setFormStep(1)} 
-                    className="w-full sm:w-1/3 border border-white/10 py-8 font-black uppercase tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
+                    className="w-full sm:w-1/3 border border-white/10 py-5 md:py-8 font-black uppercase tracking-[0.14em] md:tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
                   >
                     Indietro
                   </button>
@@ -379,7 +470,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                     type="button" 
                     onClick={() => setFormStep(3)} 
                     disabled={!isStep2Valid}
-                    className="w-full sm:w-2/3 btn-emotive-primary !py-8 !text-black !font-black shadow-2xl active:scale-95 disabled:opacity-30"
+                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black shadow-2xl active:scale-95 disabled:opacity-30"
                   >
                     Prosegui - Prezzo
                   </button>
@@ -391,16 +482,16 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
             {formStep === 3 && (
               <div className="space-y-12 animate-reveal">
                 <h3 className="text-2xl font-black text-white uppercase tracking-tight border-l-4 border-brand-gold pl-6">
-                  Prezzo Personalizzato
+                  Prezzo Automatico da Metratura
                 </h3>
 
-                <div className="bg-white/5 p-12 border border-white/10 space-y-10">
+                <div className="bg-white/5 p-5 md:p-12 border border-white/10 space-y-6 md:space-y-10">
                   <div className="space-y-6">
                     <label className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold block">
                       Prezzo Totale Progetto (€)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-brand-gold">€</span>
+                      <span className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-2xl md:text-3xl font-black text-brand-gold">€</span>
                       <input 
                         type="number" 
                         required 
@@ -408,11 +499,23 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                         step="0.01"
                         placeholder="990.00" 
                         value={projectState.totalPrice || ''} 
-                        onChange={handlePriceChange} 
-                        className="w-full bg-white/10 border-2 border-brand-gold/40 p-6 pl-16 text-3xl font-black text-white outline-none focus:border-brand-gold transition-all" 
+                        onChange={handlePriceChange}
+                        readOnly
+                        className="w-full bg-white/10 border-2 border-brand-gold/40 p-4 md:p-6 pl-12 md:pl-16 text-2xl md:text-3xl font-black text-white outline-none focus:border-brand-gold transition-all cursor-not-allowed opacity-90" 
                       />
                     </div>
-                    <p className="text-xs text-gray-500 italic">Inserisci il prezzo totale del servizio (esclusa IVA)</p>
+                    <p className="text-xs text-gray-500 italic">
+                      Prezzo calcolato automaticamente dalla fascia mq
+                      {projectState.pricingRuleLabel ? ` (${projectState.pricingRuleLabel})` : ''}.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { void calculatePriceFromMq(); }}
+                      disabled={pricingLoading}
+                      className="text-[10px] uppercase tracking-wider text-brand-gold border border-brand-gold/40 px-4 py-2 disabled:opacity-50"
+                    >
+                      {pricingLoading ? 'AGGIORNAMENTO...' : 'Ricalcola Prezzo da MQ'}
+                    </button>
                   </div>
 
                   <div className="space-y-6">
@@ -429,7 +532,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                         placeholder="30" 
                         value={projectState.depositPercentage || 30} 
                         onChange={handleDepositPercentageChange} 
-                        className="w-full bg-white/10 border-2 border-brand-gold/40 p-6 text-2xl font-black text-white outline-none focus:border-brand-gold transition-all" 
+                        className="w-full bg-white/10 border-2 border-brand-gold/40 p-4 md:p-6 text-xl md:text-2xl font-black text-white outline-none focus:border-brand-gold transition-all" 
                       />
                       <span className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl font-black text-brand-gold">%</span>
                     </div>
@@ -478,13 +581,13 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                   <button 
                     type="button" 
                     onClick={() => setFormStep(2)} 
-                    className="w-full sm:w-1/3 border border-white/10 py-8 font-black uppercase tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
+                    className="w-full sm:w-1/3 border border-white/10 py-5 md:py-8 font-black uppercase tracking-[0.14em] md:tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
                   >
                     Indietro
                   </button>
                   <button 
                     type="submit" 
-                    className="w-full sm:w-2/3 btn-emotive-primary !py-8 !text-black !font-black shadow-2xl active:scale-95"
+                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black shadow-2xl active:scale-95"
                   >
                     Genera Preventivo
                   </button>

@@ -44,6 +44,13 @@ const HUGGINGFACE_API_TOKEN = (process.env.HUGGINGFACE_API_TOKEN || process.env.
 const HUGGINGFACE_MODEL = (process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct').trim();
 const HUGGINGFACE_API_URL = (process.env.HUGGINGFACE_API_URL || 'https://router.huggingface.co/v1/chat/completions').trim();
 const AI_PROVIDER_MODE = (process.env.AI_PROVIDER_MODE || 'huggingface_only').trim().toLowerCase();
+const PRICING_RULES_TABLE = (process.env.PRICING_RULES_TABLE || 'pricing_rules_emotive').trim();
+const DISCOUNT_CODES_TABLE = (process.env.DISCOUNT_CODES_TABLE || 'pricing_discount_codes').trim();
+const REFERRAL_RULES_TABLE = (process.env.REFERRAL_RULES_TABLE || 'pricing_referral_rules').trim();
+const PARTNERS_TABLE = (process.env.PARTNERS_TABLE || 'partners').trim();
+const PARTNER_REFERRALS_TABLE = (process.env.PARTNER_REFERRALS_TABLE || 'partner_referrals').trim();
+const PARTNER_COMMISSIONS_TABLE = (process.env.PARTNER_COMMISSIONS_TABLE || 'partner_commissions').trim();
+const ADMIN_PRICING_SECRET = (process.env.ADMIN_PRICING_SECRET || '').trim();
 
 let airtableBase = null;
 if (AIRTABLE_TOKEN && AIRTABLE_BASE_ID) {
@@ -96,6 +103,301 @@ function isSupabaseConfigured() {
   return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 }
 
+async function supabaseSelect(table, queryString) {
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${queryString}`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Supabase select ${table} fallito (${response.status}): ${text.slice(0, 280)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+async function supabaseUpsert(table, payload, onConflict) {
+  const conflict = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : '';
+  const url = `${SUPABASE_URL}/rest/v1/${table}${conflict}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Supabase upsert ${table} fallito (${response.status}): ${text.slice(0, 280)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+async function supabaseInsert(table, payload) {
+  const url = `${SUPABASE_URL}/rest/v1/${table}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Supabase insert ${table} fallito (${response.status}): ${text.slice(0, 280)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+function isAdminAuthorized(req) {
+  const provided = String(req.headers['x-admin-pricing-secret'] || '');
+  return Boolean(ADMIN_PRICING_SECRET && provided && provided === ADMIN_PRICING_SECRET);
+}
+
+function parseSquareMeters(value) {
+  const raw = String(value ?? '').trim().replace(',', '.');
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.round(parsed);
+}
+
+function calculateVat(priceExVat) {
+  const vat = priceExVat * 0.22;
+  return {
+    vatAmount: Number(vat.toFixed(2)),
+    priceIncVat: Number((priceExVat + vat).toFixed(2)),
+  };
+}
+
+function asBoolean(value) {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+async function getPricingRuleForMq(squareMeters) {
+  const rows = await supabaseSelect(
+    PRICING_RULES_TABLE,
+    `select=id,name,min_mq,max_mq,base_price_ex_vat,priority,is_active,valid_from,valid_to&is_active=eq.true&min_mq=lte.${squareMeters}&max_mq=gte.${squareMeters}&order=priority.asc,min_mq.asc&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function getDiscountByCode(code) {
+  if (!code) return null;
+  const rows = await supabaseSelect(
+    DISCOUNT_CODES_TABLE,
+    `select=code,type,value,is_active,valid_from,valid_to,max_uses,used_count&code=eq.${encodeURIComponent(code)}&is_active=eq.true&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function getReferralByCode(code) {
+  if (!code) return null;
+  const rows = await supabaseSelect(
+    REFERRAL_RULES_TABLE,
+    `select=referral_code,reward_type,reward_value,is_active,valid_from,valid_to&referral_code=eq.${encodeURIComponent(code)}&is_active=eq.true&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+function computeDiscountAmount(basePrice, type, value) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return 0;
+  if (type === 'fixed') {
+    return Math.max(0, Math.min(basePrice, numericValue));
+  }
+  if (type === 'percentage') {
+    return Math.max(0, Math.min(basePrice, (basePrice * numericValue) / 100));
+  }
+  return 0;
+}
+
+function isRuleDateValid(rule) {
+  const now = new Date();
+  if (rule?.valid_from && new Date(rule.valid_from) > now) return false;
+  if (rule?.valid_to && new Date(rule.valid_to) < now) return false;
+  return true;
+}
+
+async function calculateDynamicPricing({ squareMeters, discountCode, referralCode, manualOverridePrice, isAdminOverride }) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase non configurato per pricing dinamico.');
+  }
+
+  const parsedMq = parseSquareMeters(squareMeters);
+  if (!parsedMq) {
+    throw new Error('Metri quadri non validi.');
+  }
+
+  const pricingRule = await getPricingRuleForMq(parsedMq);
+  if (!pricingRule) {
+    throw new Error(`Nessuna fascia prezzo attiva trovata per ${parsedMq} mq.`);
+  }
+  if (!isRuleDateValid(pricingRule)) {
+    throw new Error('La fascia prezzo trovata non e valida in questo momento.');
+  }
+
+  const basePrice = Number(pricingRule.base_price_ex_vat || 0);
+  let totalDiscount = 0;
+  let appliedDiscountCode = null;
+  let appliedReferralCode = null;
+
+  if (discountCode) {
+    const discountRule = await getDiscountByCode(String(discountCode).trim());
+    if (discountRule && isRuleDateValid(discountRule)) {
+      const usageLimit = Number(discountRule.max_uses || 0);
+      const usedCount = Number(discountRule.used_count || 0);
+      const canUse = !usageLimit || usedCount < usageLimit;
+      if (canUse) {
+        totalDiscount += computeDiscountAmount(basePrice, discountRule.type, discountRule.value);
+        appliedDiscountCode = String(discountRule.code || '').trim() || null;
+      }
+    }
+  }
+
+  if (referralCode) {
+    const referralRule = await getReferralByCode(String(referralCode).trim());
+    if (referralRule && isRuleDateValid(referralRule)) {
+      if (referralRule.reward_type === 'customer_discount') {
+        totalDiscount += computeDiscountAmount(basePrice, 'percentage', referralRule.reward_value);
+      } else if (referralRule.reward_type === 'customer_discount_fixed') {
+        totalDiscount += computeDiscountAmount(basePrice, 'fixed', referralRule.reward_value);
+      }
+      appliedReferralCode = String(referralRule.referral_code || '').trim() || null;
+    }
+  }
+
+  let finalPriceExVat = Math.max(0, Number((basePrice - totalDiscount).toFixed(2)));
+  let manualOverrideApplied = false;
+
+  if (isAdminOverride && Number.isFinite(Number(manualOverridePrice))) {
+    finalPriceExVat = Math.max(0, Number(Number(manualOverridePrice).toFixed(2)));
+    manualOverrideApplied = true;
+  }
+
+  const { vatAmount, priceIncVat } = calculateVat(finalPriceExVat);
+
+  return {
+    squareMeters: parsedMq,
+    pricingRuleId: pricingRule.id || null,
+    pricingRuleName: pricingRule.name || `${pricingRule.min_mq}-${pricingRule.max_mq} mq`,
+    basePriceExVat: Number(basePrice.toFixed(2)),
+    totalDiscountExVat: Number(totalDiscount.toFixed(2)),
+    finalPriceExVat,
+    vatAmount,
+    finalPriceIncVat: priceIncVat,
+    appliedDiscountCode,
+    appliedReferralCode,
+    manualOverrideApplied,
+  };
+}
+
+async function getPartnerByCode(referralCode) {
+  if (!referralCode) return null;
+  const normalized = String(referralCode).trim().toUpperCase();
+  if (!normalized) return null;
+  const rows = await supabaseSelect(
+    PARTNERS_TABLE,
+    `select=id,code,display_name,commission_percent,is_active&code=eq.${encodeURIComponent(normalized)}&is_active=eq.true&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function createPartnerReferralAndCommission({
+  referralCode,
+  leadEmail,
+  quoteNumber,
+  preventivoAppId,
+  totalPriceExVat,
+  metadata,
+}) {
+  if (!isSupabaseConfigured()) return { ok: false, skipped: true, reason: 'Supabase non configurato' };
+  if (!referralCode) return { ok: false, skipped: true, reason: 'Nessun referralCode' };
+
+  const partner = await getPartnerByCode(referralCode);
+  if (!partner?.id) return { ok: false, skipped: true, reason: 'Partner non trovato o disattivo' };
+
+  let referral = null;
+  if (preventivoAppId) {
+    const existingReferrals = await supabaseSelect(
+      PARTNER_REFERRALS_TABLE,
+      `select=id,partner_id,referral_code,preventivo_app_id,status&preventivo_app_id=eq.${encodeURIComponent(preventivoAppId)}&limit=1`
+    );
+    referral = Array.isArray(existingReferrals) ? existingReferrals[0] || null : null;
+  }
+  if (!referral) {
+    const referralRows = await supabaseInsert(PARTNER_REFERRALS_TABLE, {
+      partner_id: partner.id,
+      referral_code: String(referralCode).trim().toUpperCase(),
+      lead_email: leadEmail || null,
+      quote_number: quoteNumber || null,
+      preventivo_app_id: preventivoAppId || null,
+      status: 'paid',
+      metadata: metadata || {},
+      updated_at: new Date().toISOString(),
+    });
+    referral = Array.isArray(referralRows) ? referralRows[0] || null : null;
+  }
+
+  const commissionPercent = Number(partner.commission_percent || 0);
+  if (!Number.isFinite(commissionPercent) || commissionPercent <= 0) {
+    return { ok: true, referralId: referral?.id || null, commissionSkipped: true };
+  }
+  const amountEur = Number(((Number(totalPriceExVat || 0) * commissionPercent) / 100).toFixed(2));
+  if (amountEur <= 0) {
+    return { ok: true, referralId: referral?.id || null, commissionSkipped: true };
+  }
+
+  let commission = null;
+  if (referral?.id) {
+    const existingCommissions = await supabaseSelect(
+      PARTNER_COMMISSIONS_TABLE,
+      `select=id,referral_id,amount_eur,status&referral_id=eq.${encodeURIComponent(referral.id)}&limit=1`
+    );
+    commission = Array.isArray(existingCommissions) ? existingCommissions[0] || null : null;
+  }
+  if (!commission) {
+    const commissionRows = await supabaseInsert(PARTNER_COMMISSIONS_TABLE, {
+      partner_id: partner.id,
+      referral_id: referral?.id || null,
+      amount_eur: amountEur,
+      currency: 'EUR',
+      status: 'pending',
+      notes: `Commissione automatica ${commissionPercent}% su preventivo ${quoteNumber || ''}`.trim(),
+      updated_at: new Date().toISOString(),
+    });
+    commission = Array.isArray(commissionRows) ? commissionRows[0] || null : null;
+  }
+
+  return {
+    ok: true,
+    partnerId: partner.id,
+    referralId: referral?.id || null,
+    commissionId: commission?.id || null,
+    commissionAmountEur: amountEur,
+  };
+}
+
 function parseBusinessCategories(businessType) {
   if (typeof businessType !== 'string') return [];
   return businessType
@@ -133,6 +435,10 @@ async function upsertSupabaseRecord(record) {
     deposit_percentage: Number(record.deposit_percentage || 0),
     deposit_total: Number(record.deposit_total || 0),
     remaining_total: Number(record.remaining_total || 0),
+    pricing_rule_id: record.pricing_rule_id || null,
+    pricing_rule_name: record.pricing_rule_name || null,
+    applied_discount_code: record.applied_discount_code || null,
+    applied_referral_code: record.applied_referral_code || null,
     stripe_url: record.stripe_url || '',
     payment_link_expires_at: record.payment_link_expires_at || null,
     source: record.source || 'preventivatore',
@@ -429,6 +735,156 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/pricing/calculate', async (req, res) => {
+  try {
+    const { squareMeters, discountCode, referralCode, manualOverridePrice } = req.body || {};
+    const adminOverrideHeader = String(req.headers['x-admin-pricing-secret'] || '');
+    const isAdminOverride = Boolean(
+      ADMIN_PRICING_SECRET &&
+      adminOverrideHeader &&
+      adminOverrideHeader === ADMIN_PRICING_SECRET &&
+      Number.isFinite(Number(manualOverridePrice))
+    );
+    const result = await calculateDynamicPricing({
+      squareMeters,
+      discountCode,
+      referralCode,
+      manualOverridePrice,
+      isAdminOverride,
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({
+      ok: false,
+      message: err?.message || 'Errore calcolo pricing dinamico.',
+    });
+  }
+});
+
+app.get('/api/pricing/rules', async (_req, res) => {
+  try {
+    if (!isSupabaseConfigured()) {
+      return res.status(400).json({ ok: false, message: 'Supabase non configurato.' });
+    }
+    const rows = await supabaseSelect(
+      PRICING_RULES_TABLE,
+      'select=id,name,min_mq,max_mq,base_price_ex_vat,priority,is_active,valid_from,valid_to&is_active=eq.true&order=min_mq.asc'
+    );
+    return res.json({ ok: true, rules: Array.isArray(rows) ? rows : [] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore lettura fasce prezzo.' });
+  }
+});
+
+app.get('/api/admin/pricing/rules', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const rows = await supabaseSelect(
+      PRICING_RULES_TABLE,
+      'select=id,name,min_mq,max_mq,base_price_ex_vat,priority,is_active,valid_from,valid_to,updated_at&order=min_mq.asc'
+    );
+    return res.json({ ok: true, rules: Array.isArray(rows) ? rows : [] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore caricamento regole pricing.' });
+  }
+});
+
+app.post('/api/admin/pricing/rules/upsert', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const body = req.body || {};
+    const minMq = Number(body.min_mq);
+    const maxMq = Number(body.max_mq);
+    const basePrice = Number(body.base_price_ex_vat);
+    const priority = Number(body.priority || 100);
+    if (!Number.isFinite(minMq) || !Number.isFinite(maxMq) || !Number.isFinite(basePrice) || minMq < 0 || maxMq < minMq || basePrice < 0) {
+      return res.status(400).json({ ok: false, message: 'Valori fascia non validi.' });
+    }
+    const payload = {
+      id: body.id || undefined,
+      name: String(body.name || `Fascia ${minMq}-${maxMq} mq`).trim(),
+      min_mq: Math.round(minMq),
+      max_mq: Math.round(maxMq),
+      base_price_ex_vat: Number(basePrice.toFixed(2)),
+      priority: Number.isFinite(priority) ? Math.round(priority) : 100,
+      is_active: body.is_active !== undefined ? asBoolean(body.is_active) : true,
+      valid_from: body.valid_from || null,
+      valid_to: body.valid_to || null,
+      updated_at: new Date().toISOString(),
+    };
+    const rows = await supabaseUpsert(PRICING_RULES_TABLE, payload, 'id');
+    return res.json({ ok: true, rule: Array.isArray(rows) ? rows[0] || payload : payload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore salvataggio fascia.' });
+  }
+});
+
+app.post('/api/admin/discount-codes/upsert', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const body = req.body || {};
+    const code = String(body.code || '').trim().toUpperCase();
+    const type = String(body.type || 'percentage').trim();
+    const value = Number(body.value);
+    if (!code || !['percentage', 'fixed'].includes(type) || !Number.isFinite(value) || value <= 0) {
+      return res.status(400).json({ ok: false, message: 'Codice sconto non valido.' });
+    }
+    const payload = {
+      code,
+      type,
+      value: Number(value.toFixed(2)),
+      max_uses: body.max_uses !== undefined && body.max_uses !== '' ? Math.max(0, Math.round(Number(body.max_uses))) : null,
+      used_count: 0,
+      is_active: body.is_active !== undefined ? asBoolean(body.is_active) : true,
+      visible_to_client: body.visible_to_client !== undefined ? asBoolean(body.visible_to_client) : true,
+      valid_from: body.valid_from || null,
+      valid_to: body.valid_to || null,
+      notes_internal: body.notes_internal || null,
+      updated_at: new Date().toISOString(),
+    };
+    const rows = await supabaseUpsert(DISCOUNT_CODES_TABLE, payload, 'code');
+    return res.json({ ok: true, discount: Array.isArray(rows) ? rows[0] || payload : payload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore salvataggio codice sconto.' });
+  }
+});
+
+app.post('/api/admin/referral-rules/upsert', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const body = req.body || {};
+    const referralCode = String(body.referral_code || '').trim().toUpperCase();
+    const rewardType = String(body.reward_type || 'customer_discount').trim();
+    const rewardValue = Number(body.reward_value);
+    const allowedRewardTypes = ['customer_discount', 'customer_discount_fixed', 'cash_commission', 'credit'];
+    if (!referralCode || !allowedRewardTypes.includes(rewardType) || !Number.isFinite(rewardValue) || rewardValue < 0) {
+      return res.status(400).json({ ok: false, message: 'Regola referral non valida.' });
+    }
+    const payload = {
+      referral_code: referralCode,
+      reward_type: rewardType,
+      reward_value: Number(rewardValue.toFixed(2)),
+      is_active: body.is_active !== undefined ? asBoolean(body.is_active) : true,
+      valid_from: body.valid_from || null,
+      valid_to: body.valid_to || null,
+      notes_internal: body.notes_internal || null,
+      updated_at: new Date().toISOString(),
+    };
+    const rows = await supabaseUpsert(REFERRAL_RULES_TABLE, payload, 'referral_code');
+    return res.json({ ok: true, referral: Array.isArray(rows) ? rows[0] || payload : payload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore salvataggio referral.' });
+  }
+});
+
 app.get('/api/supabase/test', async (_req, res) => {
   try {
     if (!isSupabaseConfigured()) {
@@ -598,7 +1054,7 @@ app.get('/api/stripe/session-status', async (req, res) => {
 
 app.post('/api/gmail/send-quote', async (req, res) => {
   try {
-    const { 
+    const {
       to,
       firstName,
       lastName, 
@@ -613,7 +1069,9 @@ app.post('/api/gmail/send-quote', async (req, res) => {
       totalPrice,
       depositPercentage,
       depositTotal,
-      remainingTotal
+      remainingTotal,
+      discountCode,
+      referralCode
     } = req.body || {};
     
     if (typeof to !== 'string' || !to.includes('@')) {
@@ -623,6 +1081,26 @@ app.post('/api/gmail/send-quote', async (req, res) => {
     const iban = 'IT69J3609201600991466031460';
     
     const fullName = clientName || `${firstName || ''} ${lastName || ''}`.trim();
+    const dynamicPricing = await calculateDynamicPricing({
+      squareMeters,
+      discountCode,
+      referralCode,
+      manualOverridePrice: null,
+      isAdminOverride: false,
+    });
+    const effectiveTotalPrice = Number(dynamicPricing.finalPriceExVat || totalPrice || 0);
+    const effectiveDepositPercentage = Number(depositPercentage || 30);
+    const effectiveDepositTotal =
+      Number(depositTotal || 0) > 0
+        ? Number(depositTotal)
+        : Number((effectiveTotalPrice * (effectiveDepositPercentage / 100) * 1.22).toFixed(2));
+    const effectiveRemainingTotal =
+      Number(remainingTotal || 0) > 0
+        ? Number(remainingTotal)
+        : Number((effectiveTotalPrice * (1 - effectiveDepositPercentage / 100) * 1.22).toFixed(2));
+    const referralCodeForTracking =
+      dynamicPricing.appliedReferralCode ||
+      (typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '');
     const businessCategories = parseBusinessCategories(businessType);
     const quoteNumber = nextSequenceCode('quote') || `PREV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
     const conceptVariant = pickConceptVariant(quoteNumber);
@@ -651,10 +1129,10 @@ app.post('/api/gmail/send-quote', async (req, res) => {
         projectDescription: projectDescription || ''
       },
       pricing: {
-        totalPrice: totalPrice || 0,
-        depositPercentage: depositPercentage || 0,
-        depositTotal: depositTotal || 0,
-        remainingTotal: remainingTotal || 0
+        totalPrice: effectiveTotalPrice,
+        depositPercentage: effectiveDepositPercentage,
+        depositTotal: effectiveDepositTotal,
+        remainingTotal: effectiveRemainingTotal
       },
       status: 'inviato',
       sentAt: new Date().toISOString()
@@ -675,7 +1153,7 @@ app.post('/api/gmail/send-quote', async (req, res) => {
     let stripeUrl = '';
     if (stripe) {
       try {
-        const amountCents = Math.round((depositTotal || 0) * 100);
+        const amountCents = Math.round((effectiveDepositTotal || 0) * 100);
         const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3002';
 
         const paymentLink = await stripe.paymentLinks.create({
@@ -704,7 +1182,7 @@ app.post('/api/gmail/send-quote', async (req, res) => {
             clientName: fullName,
             businessType: businessType || '',
             location: location || '',
-            totalPrice: String(totalPrice || ''),
+            totalPrice: String(effectiveTotalPrice || ''),
           },
         });
         stripeUrl = paymentLink.url;
@@ -734,21 +1212,50 @@ app.post('/api/gmail/send-quote', async (req, res) => {
         vat_number: vatNumber || '',
         address: address || '',
         project_description: projectDescription || '',
-        total_price: totalPrice || 0,
-        deposit_percentage: depositPercentage || 0,
-        deposit_total: depositTotal || 0,
-        remaining_total: remainingTotal || 0,
+        total_price: effectiveTotalPrice || 0,
+        deposit_percentage: effectiveDepositPercentage || 0,
+        deposit_total: effectiveDepositTotal || 0,
+        remaining_total: effectiveRemainingTotal || 0,
+        pricing_rule_id: dynamicPricing.pricingRuleId || null,
+        pricing_rule_name: dynamicPricing.pricingRuleName || null,
+        applied_discount_code: dynamicPricing.appliedDiscountCode || null,
+        applied_referral_code: referralCodeForTracking || null,
         stripe_url: stripeUrl || '',
         payment_link_expires_at: paymentLinkExpiresAt,
         source: 'send-quote',
         lead_source: 'web_form',
         funnel_step: 'quote_sent',
         notes: '',
-        metadata: { iban, hasPdfAttachment: true, businessCategories },
+        metadata: {
+          iban,
+          hasPdfAttachment: true,
+          businessCategories,
+          pricingRuleId: dynamicPricing.pricingRuleId,
+          pricingRuleName: dynamicPricing.pricingRuleName,
+          appliedDiscountCode: dynamicPricing.appliedDiscountCode,
+          appliedReferralCode: referralCodeForTracking || null,
+        },
         timestamp_utc: preventivo.timestamp,
       });
       if (supabaseResult?.ok) {
         console.log(`✅ Sincronizzato con Supabase: ${preventivo.id}`);
+      }
+      if (referralCodeForTracking) {
+        const referralResult = await createPartnerReferralAndCommission({
+          referralCode: referralCodeForTracking,
+          leadEmail: to,
+          quoteNumber,
+          preventivoAppId: preventivo.id,
+          totalPriceExVat: effectiveTotalPrice,
+          metadata: {
+            businessType: businessType || '',
+            location: location || '',
+            squareMeters: squareMeters || '',
+          },
+        });
+        if (referralResult?.ok) {
+          console.log(`✅ Referral/commissione registrati (${referralCodeForTracking})`);
+        }
       }
     } catch (supabaseErr) {
       console.warn('⚠️ Errore sincronizzazione Supabase (send-quote):', supabaseErr.message);
@@ -825,10 +1332,10 @@ app.post('/api/gmail/send-quote', async (req, res) => {
       location,
       squareMeters,
       projectDescription,
-      totalPrice,
-      depositPercentage,
-      depositTotal,
-      remainingTotal,
+      totalPrice: effectiveTotalPrice,
+      depositPercentage: effectiveDepositPercentage,
+      depositTotal: effectiveDepositTotal,
+      remainingTotal: effectiveRemainingTotal,
       iban,
       stripeUrl,
       conceptReport: conceptReportText
@@ -845,10 +1352,10 @@ app.post('/api/gmail/send-quote', async (req, res) => {
       location,
       squareMeters,
       projectDescription,
-      totalPrice,
-      depositPercentage,
-      depositTotal,
-      remainingTotal,
+      totalPrice: effectiveTotalPrice,
+      depositPercentage: effectiveDepositPercentage,
+      depositTotal: effectiveDepositTotal,
+      remainingTotal: effectiveRemainingTotal,
       iban,
       stripeUrl,
       conceptReport: conceptReportText
@@ -901,7 +1408,9 @@ app.post('/api/leads/save', async (req, res) => {
       address,
       totalPrice,
       depositPercentage,
-      projectDescription
+      projectDescription,
+      discountCode,
+      referralCode
     } = req.body || {};
     
     // Validazione minima
@@ -909,8 +1418,16 @@ app.post('/api/leads/save', async (req, res) => {
       return res.status(400).send('Email non valida.');
     }
     
-    // Calcola depositTotal
-    const depositBase = (totalPrice || 0) * ((depositPercentage || 30) / 100);
+    const dynamicPricing = await calculateDynamicPricing({
+      squareMeters,
+      discountCode,
+      referralCode,
+      manualOverridePrice: null,
+      isAdminOverride: false,
+    });
+    const effectiveTotalPrice = Number(dynamicPricing.finalPriceExVat || totalPrice || 0);
+    const effectiveDepositPercentage = Number(depositPercentage || 30);
+    const depositBase = effectiveTotalPrice * (effectiveDepositPercentage / 100);
     const depositVat = depositBase * 0.22;
     const depositTotal = depositBase + depositVat;
     
@@ -935,8 +1452,8 @@ app.post('/api/leads/save', async (req, res) => {
       vatNumber: vatNumber || '',
       address: address || '',
       projectDescription: projectDescription || '',
-      totalPrice: totalPrice || 0,
-      depositPercentage: depositPercentage || 30,
+      totalPrice: effectiveTotalPrice,
+      depositPercentage: effectiveDepositPercentage,
       depositTotal: depositTotal,
       status: 'pending' // pending, contacted, converted, lost
     };
@@ -970,17 +1487,28 @@ app.post('/api/leads/save', async (req, res) => {
         vat_number: vatNumber || '',
         address: address || '',
         project_description: projectDescription || '',
-        total_price: totalPrice || 0,
-        deposit_percentage: depositPercentage || 30,
+        total_price: effectiveTotalPrice || 0,
+        deposit_percentage: effectiveDepositPercentage || 30,
         deposit_total: depositTotal || 0,
         remaining_total: 0,
+        pricing_rule_id: dynamicPricing.pricingRuleId || null,
+        pricing_rule_name: dynamicPricing.pricingRuleName || null,
+        applied_discount_code: dynamicPricing.appliedDiscountCode || null,
+        applied_referral_code: referralCodeForTracking || null,
         stripe_url: '',
         payment_link_expires_at: null,
         source: 'lead-save',
         lead_source: 'web_form',
         funnel_step: 'lead_created',
         notes: '',
-        metadata: { airtableId: airtableId || null, businessCategories },
+        metadata: {
+          airtableId: airtableId || null,
+          businessCategories,
+          pricingRuleId: dynamicPricing.pricingRuleId,
+          pricingRuleName: dynamicPricing.pricingRuleName,
+          appliedDiscountCode: dynamicPricing.appliedDiscountCode,
+          appliedReferralCode: referralCodeForTracking || null,
+        },
         timestamp_utc: newLead.timestamp,
       });
       if (supabaseResult?.ok) {
