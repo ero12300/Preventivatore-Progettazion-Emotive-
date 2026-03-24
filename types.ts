@@ -34,6 +34,9 @@ export interface ProjectState {
   appliedReferralCode?: string;
   discountCode?: string;
   referralCode?: string;
+  leadCaptured?: boolean;
+  leadCapturedAt?: string;
+  leadNumber?: string;
   
   // Stato
   isPaid: boolean;

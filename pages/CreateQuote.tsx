@@ -13,6 +13,8 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
+  const [leadSaving, setLeadSaving] = useState(false);
+  const [leadSaveError, setLeadSaveError] = useState<string | null>(null);
   const [discountCode, setDiscountCode] = useState(projectState.discountCode || '');
   const [referralCode, setReferralCode] = useState(projectState.referralCode || '');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
@@ -93,9 +95,61 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
     setProjectState({ ...projectState, depositPercentage: Math.max(0, Math.min(100, value)) });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Vai alla preview del preventivo
+    setLeadSaving(true);
+    setLeadSaveError(null);
+    try {
+      const clientFullName = `${projectState.firstName} ${projectState.lastName}`.trim();
+      const response = await fetch('/api/leads/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: projectState.firstName,
+          lastName: projectState.lastName,
+          clientName: clientFullName,
+          email: projectState.email,
+          phone: projectState.phone,
+          businessType: projectState.businessType,
+          location: projectState.location,
+          squareMeters: projectState.squareMeters,
+          companyName: projectState.companyName,
+          vatNumber: projectState.vatNumber,
+          address: projectState.address,
+          projectDescription: projectState.projectDescription,
+          discountCode: projectState.discountCode,
+          referralCode: projectState.referralCode,
+          totalPrice: projectState.totalPrice,
+          depositPercentage: projectState.depositPercentage,
+        }),
+      });
+
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(responseText || 'Errore salvataggio lead.');
+      }
+
+      let payload: any = {};
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        payload = {};
+      }
+
+      setProjectState({
+        ...projectState,
+        leadCaptured: true,
+        leadCapturedAt: new Date().toISOString(),
+        leadNumber: payload?.leadNumber || projectState.leadNumber,
+      });
+    } catch (err: any) {
+      setLeadSaveError(err?.message || 'Errore salvataggio lead. Riprova.');
+      return;
+    } finally {
+      setLeadSaving(false);
+    }
+
+    // Vai alla preview del preventivo dopo salvataggio lead
     setView(AppView.QUOTE_PREVIEW);
   };
 
@@ -587,11 +641,15 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                   </button>
                   <button 
                     type="submit" 
+                    disabled={leadSaving}
                     className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black shadow-2xl active:scale-95"
                   >
-                    Genera Preventivo
+                    {leadSaving ? 'SALVATAGGIO DATI...' : 'Genera Preventivo'}
                   </button>
                 </div>
+                {leadSaveError && (
+                  <p className="text-red-300 text-xs font-semibold">{leadSaveError}</p>
+                )}
               </div>
             )}
           </form>

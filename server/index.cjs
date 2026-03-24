@@ -51,6 +51,7 @@ const PARTNERS_TABLE = (process.env.PARTNERS_TABLE || 'partners').trim();
 const PARTNER_REFERRALS_TABLE = (process.env.PARTNER_REFERRALS_TABLE || 'partner_referrals').trim();
 const PARTNER_COMMISSIONS_TABLE = (process.env.PARTNER_COMMISSIONS_TABLE || 'partner_commissions').trim();
 const ADMIN_PRICING_SECRET = (process.env.ADMIN_PRICING_SECRET || '').trim();
+const LEAD_NOTIFICATION_EMAIL = (process.env.LEAD_NOTIFICATION_EMAIL || 'amm.emotivegroup@gmail.com').trim();
 
 let airtableBase = null;
 if (AIRTABLE_TOKEN && AIRTABLE_BASE_ID) {
@@ -1581,6 +1582,29 @@ app.post('/api/gmail/send-quote', async (req, res) => {
               console.warn('⚠️ Notifica partner non inviata:', notifyErr?.message || notifyErr);
             }
           }
+          if (isValidEmail(LEAD_NOTIFICATION_EMAIL)) {
+            try {
+              await sendGmailText({
+                env: process.env,
+                to: LEAD_NOTIFICATION_EMAIL,
+                subject: `Referral attivo - Partner ${referralResult.partnerCode || referralCodeForTracking}`,
+                text:
+                  `Un partner e entrato nel progetto tramite referral.\n\n` +
+                  `Partner: ${referralResult.partnerName || 'n/d'}\n` +
+                  `Codice: ${referralResult.partnerCode || referralCodeForTracking}\n` +
+                  `Email partner: ${referralResult.partnerEmail || 'n/d'}\n` +
+                  `Cliente: ${fullName || 'n/d'}\n` +
+                  `Preventivo: ${quoteNumber}\n` +
+                  `Commissione creata: ${referralResult.commissionCreated ? 'si' : 'no'}\n` +
+                  `Importo commissione: EUR ${Number(referralResult.commissionAmountEur || 0).toFixed(2)}\n` +
+                  `Stato: pending\n\n` +
+                  `Evento tracciato su Supabase.`,
+              });
+              console.log(`✅ Notifica referral admin inviata a ${LEAD_NOTIFICATION_EMAIL}`);
+            } catch (adminNotifyErr) {
+              console.warn('⚠️ Notifica referral admin non inviata:', adminNotifyErr?.message || adminNotifyErr);
+            }
+          }
         }
       }
     } catch (supabaseErr) {
@@ -1842,6 +1866,32 @@ app.post('/api/leads/save', async (req, res) => {
       }
     } catch (supabaseErr) {
       console.warn('⚠️ Errore sincronizzazione Supabase (lead-save):', supabaseErr.message);
+    }
+
+    if (isValidEmail(LEAD_NOTIFICATION_EMAIL)) {
+      try {
+        await sendGmailText({
+          env: process.env,
+          to: LEAD_NOTIFICATION_EMAIL,
+          subject: `Nuova richiesta preventivo - ${newLead.leadNumber || leadNumber}`,
+          text:
+            `Nuova richiesta preventivo ricevuta.\n\n` +
+            `Lead: ${newLead.leadNumber || leadNumber}\n` +
+            `Cliente: ${fullName || 'n/d'}\n` +
+            `Email: ${email}\n` +
+            `Telefono: ${phone || 'n/d'}\n` +
+            `Tipologia: ${businessType || 'n/d'}\n` +
+            `Localita: ${location || 'n/d'}\n` +
+            `Mq: ${squareMeters || 'n/d'}\n` +
+            `Prezzo progetto (ex IVA): EUR ${Number(effectiveTotalPrice || 0).toFixed(2)}\n` +
+            `Acconto (%): ${Number(effectiveDepositPercentage || 30).toFixed(0)}\n` +
+            `Codice sconto: ${dynamicPricing.appliedDiscountCode || 'n/d'}\n` +
+            `Codice referral: ${referralCodeForTracking || 'n/d'}\n\n` +
+            `I dati sono stati inviati a Supabase e Airtable.`,
+        });
+      } catch (notifyErr) {
+        console.warn('⚠️ Notifica nuovo lead non inviata:', notifyErr?.message || notifyErr);
+      }
     }
     
     console.log(`✅ Lead salvato: ${fullName} (${email})`);

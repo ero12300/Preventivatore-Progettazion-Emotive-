@@ -91,31 +91,39 @@ const QuotePreview: React.FC<QuotePreviewProps> = ({ setView, projectState, setP
     setEmailError(null);
 
     try {
-      // 1. Salva il lead nel database e Airtable
-      const leadRes = await fetch('/api/leads/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: projectState.firstName,
-          lastName: projectState.lastName,
-          clientName: clientFullName,
-          email: customerEmail,
-          phone: projectState.phone,
-          businessType: projectState.businessType,
-          location: projectState.location,
-          squareMeters: projectState.squareMeters,
-          companyName: projectState.companyName,
-          vatNumber: projectState.vatNumber,
-          discountCode: projectState.discountCode,
-          referralCode: projectState.referralCode,
-          totalPrice: projectState.totalPrice,
-          depositPercentage: projectState.depositPercentage
-        }),
-      });
+      // 1. Salva il lead nel database e Airtable solo se non già acquisito
+      if (!projectState.leadCaptured) {
+        const leadRes = await fetch('/api/leads/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: projectState.firstName,
+            lastName: projectState.lastName,
+            clientName: clientFullName,
+            email: customerEmail,
+            phone: projectState.phone,
+            businessType: projectState.businessType,
+            location: projectState.location,
+            squareMeters: projectState.squareMeters,
+            companyName: projectState.companyName,
+            vatNumber: projectState.vatNumber,
+            discountCode: projectState.discountCode,
+            referralCode: projectState.referralCode,
+            totalPrice: projectState.totalPrice,
+            depositPercentage: projectState.depositPercentage
+          }),
+        });
 
-      if (!leadRes.ok) {
-        const text = await leadRes.text();
-        console.warn('Errore salvataggio lead:', text);
+        if (!leadRes.ok) {
+          const text = await leadRes.text();
+          console.warn('Errore salvataggio lead:', text);
+        } else {
+          setProjectState({
+            ...projectState,
+            leadCaptured: true,
+            leadCapturedAt: new Date().toISOString(),
+          });
+        }
       }
 
       // 2. Invia l'email con PDF allegato
