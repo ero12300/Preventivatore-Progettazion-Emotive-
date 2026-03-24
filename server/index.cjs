@@ -10,7 +10,7 @@ const { generateQuoteHTML, generateQuotePDF } = require('./pdf-generator.cjs');
 dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_SECRET_KEY = (process.env.STRIPE_SECRET_KEY || '').trim();
 const stripe =
   STRIPE_SECRET_KEY && /^sk_(test|live)_/.test(STRIPE_SECRET_KEY)
     ? new Stripe(STRIPE_SECRET_KEY)
@@ -29,21 +29,21 @@ const port = Number(process.env.STRIPE_SERVER_PORT || 4242);
 const PAYMENT_LINK_VALID_HOURS = 24;
 
 // Configurazione Airtable
-const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN || '';
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'app20MDmIqa5SoxRO';
-const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'tblGm3YGvNgZFnKfM';
+const AIRTABLE_TOKEN = (process.env.AIRTABLE_TOKEN || '').trim();
+const AIRTABLE_BASE_ID = (process.env.AIRTABLE_BASE_ID || 'app20MDmIqa5SoxRO').trim();
+const AIRTABLE_TABLE_NAME = (process.env.AIRTABLE_TABLE_NAME || 'tblGm3YGvNgZFnKfM').trim();
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'preventivi_progettazione_emotive';
-const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
-const MINIMAX_API_URL = process.env.MINIMAX_API_URL || 'https://api.minimax.chat/v1/text/chatcompletion_v2';
-const MINIMAX_MODEL = process.env.MINIMAX_MODEL || 'MiniMax-Text-01';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-const HUGGINGFACE_API_TOKEN = process.env.HUGGINGFACE_API_TOKEN || process.env.HF_API_TOKEN || '';
-const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
-const HUGGINGFACE_API_URL = process.env.HUGGINGFACE_API_URL || 'https://router.huggingface.co/v1/chat/completions';
-const AI_PROVIDER_MODE = (process.env.AI_PROVIDER_MODE || 'huggingface_only').toLowerCase();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const SUPABASE_TABLE = (process.env.SUPABASE_TABLE || 'preventivi_progettazione_emotive').trim();
+const MINIMAX_API_KEY = (process.env.MINIMAX_API_KEY || '').trim();
+const MINIMAX_API_URL = (process.env.MINIMAX_API_URL || 'https://api.minimax.chat/v1/text/chatcompletion_v2').trim();
+const MINIMAX_MODEL = (process.env.MINIMAX_MODEL || 'MiniMax-Text-01').trim();
+const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
+const GEMINI_MODEL = (process.env.GEMINI_MODEL || 'gemini-2.0-flash').trim();
+const HUGGINGFACE_API_TOKEN = (process.env.HUGGINGFACE_API_TOKEN || process.env.HF_API_TOKEN || '').trim();
+const HUGGINGFACE_MODEL = (process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct').trim();
+const HUGGINGFACE_API_URL = (process.env.HUGGINGFACE_API_URL || 'https://router.huggingface.co/v1/chat/completions').trim();
+const AI_PROVIDER_MODE = (process.env.AI_PROVIDER_MODE || 'huggingface_only').trim().toLowerCase();
 
 let airtableBase = null;
 if (AIRTABLE_TOKEN && AIRTABLE_BASE_ID) {
