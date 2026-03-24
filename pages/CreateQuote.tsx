@@ -1,6 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppView, ProjectState } from '../types';
+
+/** Acconto protocollo: fisso, non modificabile dal cliente. */
+const FIXED_DEPOSIT_PERCENT = 30;
 
 interface CreateQuoteProps {
   setView: (view: AppView) => void;
@@ -90,11 +93,6 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
     setProjectState({ ...projectState, totalPrice: value });
   };
 
-  const handleDepositPercentageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value) || 30;
-    setProjectState({ ...projectState, depositPercentage: Math.max(0, Math.min(100, value)) });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLeadSaving(true);
@@ -120,7 +118,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
           discountCode: projectState.discountCode,
           referralCode: projectState.referralCode,
           totalPrice: projectState.totalPrice,
-          depositPercentage: projectState.depositPercentage,
+          depositPercentage: FIXED_DEPOSIT_PERCENT,
         }),
       });
 
@@ -181,6 +179,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
       setProjectState({
         ...projectState,
         totalPrice: Number(data.finalPriceExVat || 0),
+        depositPercentage: FIXED_DEPOSIT_PERCENT,
         pricingRuleId: data.pricingRuleId || undefined,
         pricingRuleLabel: data.pricingRuleName || undefined,
         appliedDiscountCode: data.appliedDiscountCode || undefined,
@@ -207,6 +206,11 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
   const isStep1Valid = selectedCategories.length > 0 && projectState.location && Number(projectState.squareMeters || 0) > 0;
   const isStep2Valid = projectState.firstName && projectState.lastName && projectState.email;
   const isStep3Valid = projectState.totalPrice > 0;
+
+  useEffect(() => {
+    if (formStep !== 3) return;
+    setProjectState((p) => (p.depositPercentage === FIXED_DEPOSIT_PERCENT ? p : { ...p, depositPercentage: FIXED_DEPOSIT_PERCENT }));
+  }, [formStep, setProjectState]);
 
   return (
     <div className="min-h-screen bg-[#050505] pt-24 md:pt-32 pb-16 md:pb-40 px-4 sm:px-6">
@@ -574,23 +578,15 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
 
                   <div className="space-y-6">
                     <label className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold block">
-                      Percentuale Acconto (%)
+                      Percentuale acconto
                     </label>
-                    <div className="relative">
-                      <input 
-                        type="number" 
-                        required 
-                        min="0"
-                        max="100"
-                        step="1"
-                        placeholder="30" 
-                        value={projectState.depositPercentage || 30} 
-                        onChange={handleDepositPercentageChange} 
-                        className="w-full bg-white/10 border-2 border-brand-gold/40 p-4 md:p-6 text-xl md:text-2xl font-black text-white outline-none focus:border-brand-gold transition-all" 
-                      />
-                      <span className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl font-black text-brand-gold">%</span>
+                    <div className="w-full bg-white/10 border-2 border-brand-gold/40 p-4 md:p-6 flex items-center justify-between cursor-not-allowed opacity-95">
+                      <span className="text-xl md:text-2xl font-black text-white">{FIXED_DEPOSIT_PERCENT}%</span>
+                      <span className="text-sm font-bold text-brand-gold/80 uppercase tracking-wider">Fisso · Protocollo EMOTIVE</span>
                     </div>
-                    <p className="text-xs text-gray-500 italic">L'acconto verrà calcolato automaticamente con IVA 22%</p>
+                    <p className="text-xs text-gray-500 italic">
+                      L’acconto è sempre il {FIXED_DEPOSIT_PERCENT}% del totale progetto (IVA 22% applicata sull’importo acconto).
+                    </p>
                   </div>
 
                   {/* Preview Calcoli */}
@@ -616,16 +612,16 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                     </div>
                     
                     <div className="flex justify-between items-center text-white border-b border-white/10 pb-3">
-                      <span className="text-sm font-light">Acconto ({projectState.depositPercentage}% + IVA 22%)</span>
+                      <span className="text-sm font-light">Acconto ({FIXED_DEPOSIT_PERCENT}% + IVA 22%)</span>
                       <span className="text-xl font-black text-brand-gold">
-                        € {(projectState.totalPrice * (projectState.depositPercentage / 100) * 1.22).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        € {(projectState.totalPrice * (FIXED_DEPOSIT_PERCENT / 100) * 1.22).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-white pt-2">
                       <span className="text-sm font-light">Saldo (rimanente + IVA 22%)</span>
                       <span className="text-lg font-bold">
-                        € {(projectState.totalPrice * (1 - projectState.depositPercentage / 100) * 1.22).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        € {(projectState.totalPrice * (1 - FIXED_DEPOSIT_PERCENT / 100) * 1.22).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>

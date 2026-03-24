@@ -27,6 +27,8 @@ app.use(express.json());
 
 const port = Number(process.env.STRIPE_SERVER_PORT || 4242);
 const PAYMENT_LINK_VALID_HOURS = 24;
+/** Acconto cliente: fisso protocollo (allineato al preventivatore). */
+const FIXED_CLIENT_DEPOSIT_PERCENT = 30;
 
 // Configurazione Airtable
 const AIRTABLE_TOKEN = (process.env.AIRTABLE_TOKEN || '').trim();
@@ -1326,10 +1328,14 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
       return res.status(500).send('Stripe non configurato. Imposta STRIPE_SECRET_KEY in .env.local (sk_test_... o sk_live_...).');
     }
 
-    const { email, clientName, businessType, location, depositTotal, totalPrice, depositPercentage } = req.body || {};
+    const { email, clientName, businessType, location, totalPrice } = req.body || {};
 
-    const amountCents = Math.round((depositTotal || 0) * 100);
-    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+    const totalExVat = Number(totalPrice || 0);
+    const serverDepositIncVat = Number(
+      (totalExVat * (FIXED_CLIENT_DEPOSIT_PERCENT / 100) * 1.22).toFixed(2)
+    );
+    const amountCents = Math.round(serverDepositIncVat * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0 || !Number.isFinite(totalExVat) || totalExVat <= 0) {
       return res.status(400).send('Importo acconto non valido.');
     }
 
@@ -1345,7 +1351,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
             unit_amount: amountCents,
             product_data: {
               name: 'Acconto Protocollo EMOTIVE®',
-              description: `Attivazione (${depositPercentage}% + IVA) - ${clientName || 'Cliente'}`,
+              description: `Attivazione (${FIXED_CLIENT_DEPOSIT_PERCENT}% + IVA) - ${clientName || 'Cliente'}`,
             },
           },
         },
@@ -1361,7 +1367,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
         businessType: typeof businessType === 'string' ? businessType : '',
         location: typeof location === 'string' ? location : '',
         totalPrice: String(totalPrice || ''),
-        depositPercentage: String(depositPercentage || ''),
+        depositPercentage: String(FIXED_CLIENT_DEPOSIT_PERCENT),
       },
     });
 
@@ -1436,15 +1442,13 @@ app.post('/api/gmail/send-quote', async (req, res) => {
       isAdminOverride: false,
     });
     const effectiveTotalPrice = Number(dynamicPricing.finalPriceExVat || totalPrice || 0);
-    const effectiveDepositPercentage = Number(depositPercentage || 30);
-    const effectiveDepositTotal =
-      Number(depositTotal || 0) > 0
-        ? Number(depositTotal)
-        : Number((effectiveTotalPrice * (effectiveDepositPercentage / 100) * 1.22).toFixed(2));
-    const effectiveRemainingTotal =
-      Number(remainingTotal || 0) > 0
-        ? Number(remainingTotal)
-        : Number((effectiveTotalPrice * (1 - effectiveDepositPercentage / 100) * 1.22).toFixed(2));
+    const effectiveDepositPercentage = FIXED_CLIENT_DEPOSIT_PERCENT;
+    const effectiveDepositTotal = Number(
+      (effectiveTotalPrice * (effectiveDepositPercentage / 100) * 1.22).toFixed(2)
+    );
+    const effectiveRemainingTotal = Number(
+      (effectiveTotalPrice * (1 - effectiveDepositPercentage / 100) * 1.22).toFixed(2)
+    );
     const referralCodeForTracking =
       dynamicPricing.appliedReferralCode ||
       (typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '');
@@ -1848,7 +1852,7 @@ app.post('/api/leads/save', async (req, res) => {
       dynamicPricing.appliedReferralCode ||
       (typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '');
     const effectiveTotalPrice = Number(dynamicPricing.finalPriceExVat || totalPrice || 0);
-    const effectiveDepositPercentage = Number(depositPercentage || 30);
+    const effectiveDepositPercentage = FIXED_CLIENT_DEPOSIT_PERCENT;
     const depositBase = effectiveTotalPrice * (effectiveDepositPercentage / 100);
     const depositVat = depositBase * 0.22;
     const depositTotal = depositBase + depositVat;
