@@ -1,0 +1,17 @@
+{
+  "name": "Preventivatore Progettazione Emotive",
+  "short_name": "Emotive",
+  "description": "Preventivatore professionale EMOTIVE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/emotive-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

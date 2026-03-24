@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMOTIVE – Format & Concept Design</title>
+    <meta name="theme-color" content="#050505">
+    <link rel="icon" type="image/svg+xml" href="/emotive-logo.svg">
+    <link rel="apple-touch-icon" href="/emotive-logo.svg">
+    <link rel="manifest" href="/site.webmanifest">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                'brand-gold': '#c5a059',
+                'brand-dark': '#050505',
+                'brand-obsidian': '#050505',
+              }
+            }
+          }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-gold: #c5a059;
+            --brand-obsidian: #050505;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            scroll-behavior: smooth;
+            background-color: #fcfcfc;
+            color: var(--brand-obsidian);
+        }
+        .serif { font-family: 'Playfair Display', serif; }
+        
+        /* EMOTIVE LOGO STYLE */
+        .emotive-logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 0.8;
+        }
+        .emotive-logo-text {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            transform: rotate(180deg);
+            font-size: 2rem;
+            color: #000;
+        }
+        .emotive-logo-square {
+            width: 12px;
+            height: 12px;
+            background-color: #000;
+            margin-bottom: 4px;
+        }
+
+        /* BUTTONS - HIGH VISIBILITY */
+        .btn-emotive-primary {
+            background-color: var(--brand-gold);
+            color: #000;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            padding: 1.25rem 2.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--brand-gold);
+            display: inline-block;
+            text-align: center;
+        }
+        .btn-emotive-primary:hover {
+            background-color: #fff;
+            color: #000;
+            box-shadow: 0 20px 40px -10px rgba(197, 160, 89, 0.4);
+            transform: translateY(-2px);
+        }
+        .btn-emotive-primary:disabled {
+            background-color: #e5e5e5;
+            border-color: #e5e5e5;
+            color: #a3a3a3;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-emotive-outline {
+            background-color: transparent;
+            color: #000;
+            border: 2px solid #000;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            padding: 1.25rem 2.5rem;
+            transition: all 0.3s ease;
+        }
+        .btn-emotive-outline:hover {
+            background-color: #000;
+            color: #fff;
+        }
+
+        .blueprint-bg {
+            background-image: radial-gradient(rgba(197, 160, 89, 0.15) 1px, transparent 0);
+            background-size: 30px 30px;
+        }
+
+        input[type="checkbox"] {
+            accent-color: var(--brand-gold);
+            width: 1.2rem;
+            height: 1.2rem;
+            cursor: pointer;
+        }
+
+        .pdf-shadow {
+            box-shadow: 0 60px 100px -20px rgba(0,0,0,0.12);
+        }
+
+        /* ANIMATIONS */
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-reveal {
+            animation: reveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        /* PRINT STYLES FOR PDF GENERATION */
+        @media print {
+            header, footer, nav, button, .no-print, .action-bar-container {
+                display: none !important;
+            }
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            main {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .min-h-screen {
+                min-height: auto !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+            .max-w-5xl {
+                max-width: 100% !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+            .pdf-shadow {
+                box-shadow: none !important;
+                border: 1px solid #eee !important;
+            }
+            .blueprint-bg {
+                background-image: none !important;
+            }
+            .pdf-container {
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

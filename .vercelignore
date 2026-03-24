@@ -1,0 +1,7 @@
+node_modules
+dist
+.env.local
+server/database.json
+server/preventivi
+server/preventivi_export.xlsx
+*.bat

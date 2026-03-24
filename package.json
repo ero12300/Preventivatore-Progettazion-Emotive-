@@ -1,0 +1,32 @@
+{
+  "name": "23.01.2026--emotive-–-format-&-concept-funnel",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:client": "node ./node_modules/vite/bin/vite.js",
+    "dev:server": "node ./server/index.cjs",
+    "gmail:auth": "node ./server/gmail-auth.cjs",
+    "dev": "concurrently -k -n server,client -c green,cyan \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "test:send-email": "node ./scripts/send-test-quote-email.cjs"
+  },
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "googleapis": "^170.1.0",
+    "puppeteer": "^24.36.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "stripe": "^20.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

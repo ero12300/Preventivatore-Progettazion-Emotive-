@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="88" fill="#050505"/>
+  <rect x="84" y="84" width="44" height="44" fill="#c5a059"/>
+  <text
+    x="256"
+    y="324"
+    text-anchor="middle"
+    font-family="Inter, Arial, sans-serif"
+    font-size="124"
+    font-weight="800"
+    letter-spacing="3"
+    fill="#ffffff"
+  >
+    E
+  </text>
+  <text
+    x="256"
+    y="400"
+    text-anchor="middle"
+    font-family="Inter, Arial, sans-serif"
+    font-size="34"
+    font-weight="600"
+    letter-spacing="5"
+    fill="#c5a059"
+  >
+    EMOTIVE
+  </text>
+</svg>
