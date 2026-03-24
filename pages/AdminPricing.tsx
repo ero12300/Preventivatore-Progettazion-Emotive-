@@ -15,12 +15,22 @@ interface PricingRule {
   is_active: boolean;
 }
 
+interface PartnerRow {
+  id?: string;
+  code: string;
+  display_name: string;
+  email: string;
+  commission_percent: number;
+  is_active: boolean;
+}
+
 const SECRET_STORAGE_KEY = 'emotive_admin_pricing_secret';
 
 const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
   const [secret, setSecret] = useState('');
   const [loadingRules, setLoadingRules] = useState(false);
   const [rules, setRules] = useState<PricingRule[]>([]);
+  const [partners, setPartners] = useState<PartnerRow[]>([]);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
 
@@ -51,6 +61,14 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
     notes_internal: '',
   });
 
+  const [partnerForm, setPartnerForm] = useState<PartnerRow>({
+    code: '',
+    display_name: '',
+    email: '',
+    commission_percent: 7,
+    is_active: true,
+  });
+
   const authHeaders = useMemo(
     () => ({
       'Content-Type': 'application/json',
@@ -65,6 +83,8 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
       setSecret(savedSecret);
     }
   }, []);
+
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
   const loadRules = async () => {
     if (!secret.trim()) {
@@ -81,6 +101,12 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
         throw new Error(data?.message || 'Errore caricamento regole.');
       }
       setRules(Array.isArray(data.rules) ? data.rules : []);
+      const partnersResponse = await fetch('/api/admin/partners', { headers: authHeaders });
+      const partnersData = await partnersResponse.json();
+      if (!partnersResponse.ok || !partnersData?.ok) {
+        throw new Error(partnersData?.message || 'Errore caricamento partner.');
+      }
+      setPartners(Array.isArray(partnersData.partners) ? partnersData.partners : []);
       setStatus('Regole pricing caricate.');
     } catch (err: any) {
       setError(err?.message || 'Errore caricamento regole.');
@@ -158,6 +184,51 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
       setStatus(`Referral ${referralForm.referral_code.toUpperCase()} salvato.`);
     } catch (err: any) {
       setError(err?.message || 'Errore salvataggio referral.');
+    }
+  };
+
+  const savePartner = async () => {
+    setError('');
+    setStatus('');
+    const cleanCode = partnerForm.code.trim().toUpperCase();
+    const cleanEmail = partnerForm.email.trim();
+    if (!cleanCode) {
+      setError('Codice partner obbligatorio.');
+      return;
+    }
+    if (!partnerForm.display_name.trim()) {
+      setError('Nome partner obbligatorio.');
+      return;
+    }
+    if (partnerForm.is_active && !isValidEmail(cleanEmail)) {
+      setError('Email partner obbligatoria e valida se il partner è attivo.');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/partners/upsert', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          ...partnerForm,
+          code: cleanCode,
+          email: cleanEmail,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.message || 'Errore salvataggio partner.');
+      }
+      setStatus(`Partner ${cleanCode} salvato.`);
+      await loadRules();
+      setPartnerForm({
+        code: '',
+        display_name: '',
+        email: '',
+        commission_percent: 7,
+        is_active: true,
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Errore salvataggio partner.');
     }
   };
 
@@ -241,6 +312,43 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="bg-[#0a0a0a] border border-white/10 p-6 space-y-4">
+            <h2 className="text-white text-lg font-black">Partner Venditori</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" placeholder="Codice (es. LUIGI23)" value={partnerForm.code} onChange={(e) => setPartnerForm({ ...partnerForm, code: e.target.value.toUpperCase() })} />
+              <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" placeholder="Nome partner" value={partnerForm.display_name} onChange={(e) => setPartnerForm({ ...partnerForm, display_name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" placeholder="Email partner" value={partnerForm.email} onChange={(e) => setPartnerForm({ ...partnerForm, email: e.target.value })} />
+              <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" type="number" step="0.01" placeholder="Commissione %" value={partnerForm.commission_percent} onChange={(e) => setPartnerForm({ ...partnerForm, commission_percent: Number(e.target.value) })} />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-gray-300">
+              <input type="checkbox" checked={partnerForm.is_active} onChange={(e) => setPartnerForm({ ...partnerForm, is_active: e.target.checked })} />
+              Partner attivo (richiede email valida)
+            </label>
+            <button onClick={savePartner} className="btn-emotive-primary !py-3 !px-6 !text-[10px]">Salva partner</button>
+          </div>
+
+          <div className="bg-[#0a0a0a] border border-white/10 p-6 space-y-4">
+            <h2 className="text-white text-lg font-black">Elenco Partner</h2>
+            <div className="max-h-72 overflow-auto space-y-2">
+              {partners.map((partner) => (
+                <button
+                  key={partner.id || partner.code}
+                  onClick={() => setPartnerForm(partner)}
+                  className="w-full text-left bg-white/5 border border-white/10 p-3 text-white hover:border-brand-gold/50"
+                >
+                  <p className="text-xs font-bold">{partner.code} - {partner.display_name}</p>
+                  <p className="text-[11px] text-gray-400">{partner.email || 'email non impostata'}</p>
+                  <p className="text-[11px] text-brand-gold">Commissione: {Number(partner.commission_percent || 0).toFixed(2)}%</p>
+                </button>
+              ))}
+              {partners.length === 0 && <p className="text-xs text-gray-500">Nessun partner caricato.</p>}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="bg-[#0a0a0a] border border-white/10 p-6 space-y-4">
             <h2 className="text-white text-lg font-black">Codice Sconto</h2>
             <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" placeholder="Codice (es. WELCOME10)" value={discountForm.code} onChange={(e) => setDiscountForm({ ...discountForm, code: e.target.value.toUpperCase() })} />
             <div className="grid grid-cols-2 gap-3">
@@ -267,6 +375,9 @@ const AdminPricing: React.FC<AdminPricingProps> = ({ setView }) => {
               <input className="w-full bg-white/5 border-b border-white/20 p-3 text-white" type="number" step="0.01" value={referralForm.reward_value} onChange={(e) => setReferralForm({ ...referralForm, reward_value: Number(e.target.value) })} />
             </div>
             <button onClick={saveReferralRule} className="btn-emotive-primary !py-3 !px-6 !text-[10px]">Salva referral</button>
+            <p className="text-[11px] text-gray-500">
+              Se il referral è attivo, deve esistere un partner attivo con lo stesso codice e email valida.
+            </p>
           </div>
         </div>
       </div>

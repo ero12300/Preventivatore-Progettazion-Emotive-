@@ -175,6 +175,19 @@ function isAdminAuthorized(req) {
   return Boolean(ADMIN_PRICING_SECRET && provided && provided === ADMIN_PRICING_SECRET);
 }
 
+function isValidEmail(email) {
+  const value = String(email || '').trim();
+  return Boolean(value) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizePayoutMethod(method) {
+  const value = String(method || '').trim().toLowerCase();
+  if (value === 'bank_transfer' || value === 'stripe_connect' || value === 'manual_card') {
+    return value;
+  }
+  return '';
+}
+
 function parseSquareMeters(value) {
   const raw = String(value ?? '').trim().replace(',', '.');
   const parsed = Number(raw);
@@ -318,7 +331,7 @@ async function getPartnerByCode(referralCode) {
   if (!normalized) return null;
   const rows = await supabaseSelect(
     PARTNERS_TABLE,
-    `select=id,code,display_name,commission_percent,is_active&code=eq.${encodeURIComponent(normalized)}&is_active=eq.true&limit=1`
+    `select=id,code,display_name,email,commission_percent,is_active&code=eq.${encodeURIComponent(normalized)}&is_active=eq.true&limit=1`
   );
   return Array.isArray(rows) ? rows[0] || null : null;
 }
@@ -336,8 +349,13 @@ async function createPartnerReferralAndCommission({
 
   const partner = await getPartnerByCode(referralCode);
   if (!partner?.id) return { ok: false, skipped: true, reason: 'Partner non trovato o disattivo' };
+  const partnerEmail = String(partner.email || '').trim();
+  if (!partnerEmail || !partnerEmail.includes('@')) {
+    throw new Error(`Partner ${partner.code || referralCode} senza email valida: impostare email in tabella partners.`);
+  }
 
   let referral = null;
+  let referralCreated = false;
   if (preventivoAppId) {
     const existingReferrals = await supabaseSelect(
       PARTNER_REFERRALS_TABLE,
@@ -357,6 +375,7 @@ async function createPartnerReferralAndCommission({
       updated_at: new Date().toISOString(),
     });
     referral = Array.isArray(referralRows) ? referralRows[0] || null : null;
+    referralCreated = true;
   }
 
   const commissionPercent = Number(partner.commission_percent || 0);
@@ -369,6 +388,7 @@ async function createPartnerReferralAndCommission({
   }
 
   let commission = null;
+  let commissionCreated = false;
   if (referral?.id) {
     const existingCommissions = await supabaseSelect(
       PARTNER_COMMISSIONS_TABLE,
@@ -387,14 +407,20 @@ async function createPartnerReferralAndCommission({
       updated_at: new Date().toISOString(),
     });
     commission = Array.isArray(commissionRows) ? commissionRows[0] || null : null;
+    commissionCreated = true;
   }
 
   return {
     ok: true,
     partnerId: partner.id,
+    partnerCode: partner.code || null,
+    partnerName: partner.display_name || null,
+    partnerEmail,
     referralId: referral?.id || null,
+    referralCreated,
     commissionId: commission?.id || null,
     commissionAmountEur: amountEur,
+    commissionCreated,
   };
 }
 
@@ -868,11 +894,27 @@ app.post('/api/admin/referral-rules/upsert', async (req, res) => {
     if (!referralCode || !allowedRewardTypes.includes(rewardType) || !Number.isFinite(rewardValue) || rewardValue < 0) {
       return res.status(400).json({ ok: false, message: 'Regola referral non valida.' });
     }
+    const isActive = body.is_active !== undefined ? asBoolean(body.is_active) : true;
+    if (isActive) {
+      const partner = await getPartnerByCode(referralCode);
+      if (!partner?.id) {
+        return res.status(400).json({
+          ok: false,
+          message: `Per attivare il referral ${referralCode} devi prima creare un partner attivo con lo stesso codice.`,
+        });
+      }
+      if (!isValidEmail(partner.email)) {
+        return res.status(400).json({
+          ok: false,
+          message: `Per attivare il referral ${referralCode} il partner deve avere una email valida.`,
+        });
+      }
+    }
     const payload = {
       referral_code: referralCode,
       reward_type: rewardType,
       reward_value: Number(rewardValue.toFixed(2)),
-      is_active: body.is_active !== undefined ? asBoolean(body.is_active) : true,
+      is_active: isActive,
       valid_from: body.valid_from || null,
       valid_to: body.valid_to || null,
       notes_internal: body.notes_internal || null,
@@ -882,6 +924,265 @@ app.post('/api/admin/referral-rules/upsert', async (req, res) => {
     return res.json({ ok: true, referral: Array.isArray(rows) ? rows[0] || payload : payload });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err?.message || 'Errore salvataggio referral.' });
+  }
+});
+
+app.get('/api/admin/partners', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const rows = await supabaseSelect(
+      PARTNERS_TABLE,
+      'select=id,code,display_name,email,commission_percent,is_active,updated_at&order=updated_at.desc'
+    );
+    return res.json({ ok: true, partners: Array.isArray(rows) ? rows : [] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore caricamento partner.' });
+  }
+});
+
+app.post('/api/admin/partners/upsert', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const body = req.body || {};
+    const code = String(body.code || '').trim().toUpperCase();
+    const displayName = String(body.display_name || '').trim();
+    const email = String(body.email || '').trim();
+    const commissionPercent = Number(body.commission_percent || 0);
+    const isActive = body.is_active !== undefined ? asBoolean(body.is_active) : true;
+    if (!code || !displayName || !Number.isFinite(commissionPercent) || commissionPercent < 0) {
+      return res.status(400).json({ ok: false, message: 'Dati partner non validi.' });
+    }
+    if (isActive && !isValidEmail(email)) {
+      return res.status(400).json({ ok: false, message: 'Email partner obbligatoria e valida quando il partner è attivo.' });
+    }
+
+    const payoutMethod = normalizePayoutMethod(body.payout_method);
+    const payoutEmail = String(body.payout_email || '').trim();
+    const bankAccountHolder = String(body.bank_account_holder || '').trim();
+    const bankIban = String(body.bank_iban || '').trim().toUpperCase();
+    const stripeAccountId = String(body.stripe_account_id || '').trim();
+    if (payoutMethod === 'bank_transfer') {
+      if (!bankAccountHolder || !bankIban) {
+        return res.status(400).json({ ok: false, message: 'Per bonifico servono intestatario e IBAN partner.' });
+      }
+    }
+    if (payoutMethod === 'stripe_connect') {
+      if (!isValidEmail(payoutEmail || email)) {
+        return res.status(400).json({ ok: false, message: 'Per payout Stripe Connect serve una email valida.' });
+      }
+    }
+
+    const payload = {
+      id: body.id || undefined,
+      code,
+      display_name: displayName,
+      email: email || null,
+      commission_percent: Number(commissionPercent.toFixed(2)),
+      is_active: isActive,
+      payout_method: payoutMethod || null,
+      payout_email: payoutEmail || null,
+      bank_account_holder: bankAccountHolder || null,
+      bank_iban: bankIban || null,
+      stripe_account_id: stripeAccountId || null,
+      updated_at: new Date().toISOString(),
+    };
+    const rows = await supabaseUpsert(PARTNERS_TABLE, payload, 'id');
+    return res.json({ ok: true, partner: Array.isArray(rows) ? rows[0] || payload : payload });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore salvataggio partner.' });
+  }
+});
+
+async function getPartnerById(partnerId) {
+  if (!partnerId) return null;
+  const rows = await supabaseSelect(
+    PARTNERS_TABLE,
+    `select=id,code,display_name,email,commission_percent,is_active,payout_method,payout_email,bank_account_holder,bank_iban,stripe_account_id&id=eq.${encodeURIComponent(partnerId)}&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function getCommissionById(commissionId) {
+  if (!commissionId) return null;
+  const rows = await supabaseSelect(
+    PARTNER_COMMISSIONS_TABLE,
+    `select=id,partner_id,referral_id,amount_eur,status,currency,created_at&id=eq.${encodeURIComponent(commissionId)}&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function supabaseUpdateById(table, id, payload) {
+  const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Supabase update ${table} fallito (${response.status}): ${text.slice(0, 280)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+app.post('/api/admin/partners/stripe-connect/onboarding-link', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    if (!stripe) {
+      return res.status(500).json({ ok: false, message: 'Stripe non configurato.' });
+    }
+    const partnerId = String(req.body?.partner_id || '').trim();
+    const partnerCode = String(req.body?.partner_code || '').trim().toUpperCase();
+    let partner = null;
+    if (partnerId) {
+      partner = await getPartnerById(partnerId);
+    } else if (partnerCode) {
+      partner = await getPartnerByCode(partnerCode);
+    }
+    if (!partner?.id) {
+      return res.status(404).json({ ok: false, message: 'Partner non trovato.' });
+    }
+    const partnerEmail = String(partner.payout_email || partner.email || '').trim();
+    if (!isValidEmail(partnerEmail)) {
+      return res.status(400).json({ ok: false, message: 'Partner senza email valida per Stripe onboarding.' });
+    }
+
+    let stripeAccountId = String(partner.stripe_account_id || '').trim();
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        email: partnerEmail,
+        capabilities: { transfers: { requested: true } },
+        metadata: {
+          partnerId: partner.id,
+          partnerCode: partner.code || '',
+        },
+      });
+      stripeAccountId = account.id;
+      await supabaseUpdateById(PARTNERS_TABLE, partner.id, {
+        stripe_account_id: stripeAccountId,
+        payout_method: 'stripe_connect',
+        payout_email: partnerEmail,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    const baseUrl = process.env.APP_BASE_URL || 'https://emotive-preventivatore-progettazion.vercel.app';
+    const accountLink = await stripe.accountLinks.create({
+      account: stripeAccountId,
+      refresh_url: `${baseUrl}/#admin-pricing`,
+      return_url: `${baseUrl}/#admin-pricing`,
+      type: 'account_onboarding',
+    });
+
+    return res.json({ ok: true, partnerId: partner.id, stripeAccountId, onboardingUrl: accountLink.url });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore creazione onboarding Stripe Connect.' });
+  }
+});
+
+app.post('/api/admin/partner-commissions/pay', async (req, res) => {
+  try {
+    if (!isAdminAuthorized(req)) {
+      return res.status(401).json({ ok: false, message: 'Non autorizzato.' });
+    }
+    const commissionId = String(req.body?.commission_id || '').trim();
+    const requestedMethod = normalizePayoutMethod(req.body?.payout_method);
+    const payoutReference = String(req.body?.payout_reference || '').trim();
+    const notes = String(req.body?.notes || '').trim();
+    if (!commissionId || !requestedMethod) {
+      return res.status(400).json({ ok: false, message: 'commission_id e payout_method sono obbligatori.' });
+    }
+    const commission = await getCommissionById(commissionId);
+    if (!commission?.id) {
+      return res.status(404).json({ ok: false, message: 'Commissione non trovata.' });
+    }
+    if (String(commission.status || '').toLowerCase() === 'paid') {
+      return res.json({ ok: true, message: 'Commissione già pagata.', commissionId });
+    }
+    const partner = await getPartnerById(commission.partner_id);
+    if (!partner?.id) {
+      return res.status(404).json({ ok: false, message: 'Partner collegato non trovato.' });
+    }
+
+    let finalReference = payoutReference;
+    if (requestedMethod === 'stripe_connect') {
+      if (!stripe) {
+        return res.status(500).json({ ok: false, message: 'Stripe non configurato per payout.' });
+      }
+      const destinationAccount = String(partner.stripe_account_id || '').trim();
+      if (!destinationAccount) {
+        return res.status(400).json({ ok: false, message: 'Partner senza account Stripe Connect.' });
+      }
+      const amountCents = Math.round(Number(commission.amount_eur || 0) * 100);
+      if (!Number.isFinite(amountCents) || amountCents <= 0) {
+        return res.status(400).json({ ok: false, message: 'Importo commissione non valido.' });
+      }
+      const transfer = await stripe.transfers.create({
+        amount: amountCents,
+        currency: 'eur',
+        destination: destinationAccount,
+        metadata: {
+          commissionId: commission.id,
+          partnerId: partner.id,
+          partnerCode: partner.code || '',
+        },
+      });
+      finalReference = transfer.id;
+    } else if (requestedMethod === 'bank_transfer' && !finalReference) {
+      return res.status(400).json({ ok: false, message: 'Per bonifico inserisci riferimento pagamento (CRO/TRN).' });
+    } else if (requestedMethod === 'manual_card' && !finalReference) {
+      return res.status(400).json({ ok: false, message: 'Per pagamento carta manuale inserisci riferimento transazione.' });
+    }
+
+    const updatedRows = await supabaseUpdateById(PARTNER_COMMISSIONS_TABLE, commission.id, {
+      status: 'paid',
+      payout_method: requestedMethod,
+      payout_reference: finalReference || null,
+      notes: notes || null,
+      paid_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    const updated = Array.isArray(updatedRows) ? updatedRows[0] || null : null;
+
+    if (isValidEmail(partner.email)) {
+      try {
+        await sendGmailText({
+          env: process.env,
+          to: partner.email,
+          subject: `Pagamento commissione completato - ${partner.code || 'PARTNER'}`,
+          text:
+            `Ciao ${partner.display_name || 'Partner'},\n\n` +
+            `il pagamento della tua commissione è stato completato.\n` +
+            `Importo: EUR ${Number(commission.amount_eur || 0).toFixed(2)}\n` +
+            `Metodo: ${requestedMethod}\n` +
+            `Riferimento: ${finalReference || 'n/d'}\n` +
+            `Stato: paid\n\n` +
+            `EMOTIVE`,
+        });
+      } catch (mailErr) {
+        console.warn('⚠️ Email conferma payout partner non inviata:', mailErr?.message || mailErr);
+      }
+    }
+
+    return res.json({ ok: true, commission: updated || { id: commission.id, status: 'paid' } });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err?.message || 'Errore pagamento commissione partner.' });
   }
 });
 
@@ -1255,6 +1556,31 @@ app.post('/api/gmail/send-quote', async (req, res) => {
         });
         if (referralResult?.ok) {
           console.log(`✅ Referral/commissione registrati (${referralCodeForTracking})`);
+          if (
+            referralResult.partnerEmail &&
+            referralResult.commissionId &&
+            referralResult.commissionCreated
+          ) {
+            try {
+              await sendGmailText({
+                env: process.env,
+                to: referralResult.partnerEmail,
+                subject: `Nuova commissione registrata - ${referralResult.partnerCode || 'PARTNER'}`,
+                text:
+                  `Ciao ${referralResult.partnerName || 'Partner'},\n\n` +
+                  `il tuo codice referral ${referralResult.partnerCode || referralCodeForTracking} è stato utilizzato con successo.\n` +
+                  `Cliente: ${fullName}\n` +
+                  `Preventivo: ${quoteNumber}\n` +
+                  `Importo commissione: EUR ${Number(referralResult.commissionAmountEur || 0).toFixed(2)}\n` +
+                  `Stato: pending\n\n` +
+                  `Trovi lo storico completo nella dashboard partner.\n\n` +
+                  `EMOTIVE`,
+              });
+              console.log(`✅ Notifica email partner inviata a ${referralResult.partnerEmail}`);
+            } catch (notifyErr) {
+              console.warn('⚠️ Notifica partner non inviata:', notifyErr?.message || notifyErr);
+            }
+          }
         }
       }
     } catch (supabaseErr) {

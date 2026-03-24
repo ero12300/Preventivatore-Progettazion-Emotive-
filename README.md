@@ -1,24 +1,29 @@
-# EMOTIVE Preventivatore
+# Preventivatore Progettazione Emotive
 
-Documentazione ufficiale del progetto:
+Documentazione completa:
 
 - `README_PREVENTIVATORE.md`
 
-Questo file resta minimale per evitare duplicazioni e istruzioni in conflitto.
-
-## Quick start
+## Avvio rapido
 
 ```bash
 npm install
 npm run dev
 ```
 
+## Test essenziali
+
+```bash
+npm run build
+npm run test:send-email
+```
+
 ## Deploy
 
-Deploy target: Vercel.
+```bash
+npm run ship -- --skip-env-check --msg="descrizione modifica"
+```
 
-Configurazioni principali:
+Produzione:
 
-- `vercel.json`
-- `api/index.cjs`
-- variabili ambiente in dashboard Vercel (uguali al `.env.local`)
+- `https://emotive-preventivatore-progettazion.vercel.app`
