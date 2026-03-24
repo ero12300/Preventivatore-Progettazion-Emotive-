@@ -10,7 +10,9 @@
     "dev": "concurrently -k -n server,client -c green,cyan \"npm run dev:server\" \"npm run dev:client\"",
     "build": "node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
-    "test:send-email": "node ./scripts/send-test-quote-email.cjs"
+    "check:env": "node ./scripts/check-required-env.cjs",
+    "test:send-email": "node ./scripts/send-test-quote-email.cjs",
+    "ship": "node ./scripts/ship.cjs"
   },
   "dependencies": {
     "airtable": "^0.12.2",
