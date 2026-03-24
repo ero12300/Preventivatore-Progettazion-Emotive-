@@ -58,7 +58,7 @@ const Header: React.FC<NavProps> = ({ currentView, setView }) => {
           
           <button 
             onClick={() => setView(AppView.CREATE_QUOTE)}
-            className="btn-emotive-primary !px-4 sm:!px-7 md:!px-10 !py-3 md:!py-4 !text-[10px] sm:!text-[11px] !tracking-[0.12em] sm:!tracking-[0.16em] md:!tracking-[0.2em] shadow-[0_10px_20px_-10px_rgba(197,160,89,0.5)]"
+            className="btn-emotive-primary !px-4 sm:!px-7 md:!px-10 !py-3 md:!py-4 !text-[10px] sm:!text-[11px] !tracking-[0.12em] sm:!tracking-[0.16em] md:!tracking-[0.2em]"
           >
             Crea Preventivo
           </button>

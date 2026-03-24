@@ -40,7 +40,7 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
             <div className="pt-4 md:pt-10">
               <button 
                 onClick={() => setView(AppView.CREATE_QUOTE)}
-                className="btn-emotive-primary !px-8 sm:!px-12 md:!px-16 !py-5 md:!py-8 !text-[10px] sm:!text-xs !tracking-[0.14em] md:!tracking-[0.2em] !shadow-2xl hover:scale-105 active:scale-95 transition-transform"
+                className="btn-emotive-primary !px-8 sm:!px-12 md:!px-16 !py-5 md:!py-8 !text-[10px] sm:!text-xs !tracking-[0.14em] md:!tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-transform"
               >
                 Crea Preventivo
               </button>
@@ -154,7 +154,7 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
           <div className="flex flex-col items-center gap-6">
             <button 
               onClick={() => setView(AppView.CREATE_QUOTE)}
-              className="btn-emotive-primary !px-8 sm:!px-12 md:!px-20 !py-5 md:!py-10 !text-[10px] md:!text-xs !tracking-[0.14em] md:!tracking-[0.2em] shadow-2xl"
+              className="btn-emotive-primary !px-8 sm:!px-12 md:!px-20 !py-5 md:!py-10 !text-[10px] md:!text-xs !tracking-[0.14em] md:!tracking-[0.2em]"
             >
               Crea il tuo Preventivo
             </button>

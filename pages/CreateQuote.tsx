@@ -291,11 +291,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                       }}
                       className="w-full bg-white/5 border-b border-white/20 p-4 text-sm focus:border-brand-gold transition-all text-white outline-none font-light"
                     />
-                    <button
-                      type="button"
-                      onClick={addCustomCategory}
-                      className="px-5 py-3 bg-brand-gold text-black text-[10px] font-black uppercase tracking-wider"
-                    >
+                    <button type="button" onClick={addCustomCategory} className="btn-emotive-primary !py-3 !px-6 !text-[10px] !tracking-[0.14em] shrink-0">
                       Aggiungi
                     </button>
                   </div>
@@ -307,7 +303,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                           key={cat}
                           type="button"
                           onClick={() => removeCategory(cat)}
-                          className="px-3 py-1 bg-brand-gold/20 border border-brand-gold/40 text-brand-gold text-[11px]"
+                          className="px-3 py-1.5 rounded-full bg-brand-gold/15 border border-brand-gold/45 text-brand-gold text-[11px] shadow-[0_0_0_1px_rgba(0,0,0,0.2)_inset] hover:bg-brand-gold/25 transition-colors"
                           title="Rimuovi categoria"
                         >
                           {cat} ×
@@ -402,7 +398,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                   type="button" 
                   onClick={goToStep2}
                   disabled={!isStep1Valid || pricingLoading} 
-                  className="w-full btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black shadow-2xl mt-4 md:mt-6 disabled:opacity-30"
+                  className="w-full btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black mt-4 md:mt-6"
                 >
                   {pricingLoading ? 'CALCOLO PREZZO...' : 'Prosegui - Dati Cliente'}
                 </button>
@@ -517,10 +513,10 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-8 pt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setFormStep(1)} 
-                    className="w-full sm:w-1/3 border border-white/10 py-5 md:py-8 font-black uppercase tracking-[0.14em] md:tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
+                  <button
+                    type="button"
+                    onClick={() => setFormStep(1)}
+                    className="w-full sm:w-1/3 btn-emotive-ghost-dark !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.18em]"
                   >
                     Indietro
                   </button>
@@ -528,7 +524,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                     type="button" 
                     onClick={() => setFormStep(3)} 
                     disabled={!isStep2Valid}
-                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black shadow-2xl active:scale-95 disabled:opacity-30"
+                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black active:scale-[0.99] transition-transform"
                   >
                     Prosegui - Prezzo
                   </button>
@@ -570,7 +566,7 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                       type="button"
                       onClick={() => { void calculatePriceFromMq(); }}
                       disabled={pricingLoading}
-                      className="text-[10px] uppercase tracking-wider text-brand-gold border border-brand-gold/40 px-4 py-2 disabled:opacity-50"
+                      className="btn-emotive-gold-soft !tracking-[0.14em]"
                     >
                       {pricingLoading ? 'AGGIORNAMENTO...' : 'Ricalcola Prezzo da MQ'}
                     </button>
@@ -628,17 +624,17 @@ const CreateQuote: React.FC<CreateQuoteProps> = ({ setView, projectState, setPro
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-8 pt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setFormStep(2)} 
-                    className="w-full sm:w-1/3 border border-white/10 py-5 md:py-8 font-black uppercase tracking-[0.14em] md:tracking-widest text-[10px] text-white/50 hover:bg-white/5 transition-all"
+                  <button
+                    type="button"
+                    onClick={() => setFormStep(2)}
+                    className="w-full sm:w-1/3 btn-emotive-ghost-dark !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.18em]"
                   >
                     Indietro
                   </button>
                   <button 
                     type="submit" 
                     disabled={leadSaving}
-                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black shadow-2xl active:scale-95"
+                    className="w-full sm:w-2/3 btn-emotive-primary !py-5 md:!py-8 !text-[10px] md:!text-[11px] !tracking-[0.12em] md:!tracking-[0.2em] !text-black !font-black active:scale-[0.99] transition-transform"
                   >
                     {leadSaving ? 'SALVATAGGIO DATI...' : 'Genera Preventivo'}
                   </button>
