@@ -46,7 +46,7 @@ function loadOAuthClientConfig(env) {
 
 function buildOAuth2Client(env) {
   const conf = loadOAuthClientConfig(env);
-  const refreshToken = env.GMAIL_REFRESH_TOKEN;
+  const refreshToken = (env.GMAIL_REFRESH_TOKEN || '').trim();
   if (!refreshToken) {
     throw new Error('Manca GMAIL_REFRESH_TOKEN in .env.local (generalo con server/gmail-auth.cjs).');
   }
