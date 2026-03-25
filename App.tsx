@@ -147,6 +147,49 @@ const App: React.FC = () => {
             >
               www.boncordoarredi.it
             </a>
+            <div className="mt-4 flex flex-col gap-2 md:items-end">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] md:tracking-[0.4em] text-white/40">Social & Sito</p>
+              <a
+                href="https://www.instagram.com/emotive_format.concept"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-white/70 hover:text-brand-gold hover:underline"
+              >
+                Instagram
+              </a>
+              <a
+                href="https://www.facebook.com/Emotive.format.concept"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-white/70 hover:text-brand-gold hover:underline"
+              >
+                Facebook
+              </a>
+              <a
+                href="https://t.me/emotivegroup"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-white/70 hover:text-brand-gold hover:underline"
+              >
+                Telegram
+              </a>
+              <a
+                href="https://www.linkedin.com/company/emotive-format-and-concept/?viewAsMember=true"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-white/70 hover:text-brand-gold hover:underline"
+              >
+                LinkedIn
+              </a>
+              <a
+                href="https://www.emotivedesign.it/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-white/70 hover:text-brand-gold hover:underline"
+              >
+                emotivedesign.it
+              </a>
+            </div>
             <p className="text-[10px] text-gray-600 mt-4 italic">
               &copy; {new Date().getFullYear()} EMOTIVE Studio. Tutti i diritti riservati.
             </p>
