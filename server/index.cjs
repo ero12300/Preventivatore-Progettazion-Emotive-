@@ -52,6 +52,12 @@ const REFERRAL_RULES_TABLE = (process.env.REFERRAL_RULES_TABLE || 'pricing_refer
 const PARTNERS_TABLE = (process.env.PARTNERS_TABLE || 'partners').trim();
 const PARTNER_REFERRALS_TABLE = (process.env.PARTNER_REFERRALS_TABLE || 'partner_referrals').trim();
 const PARTNER_COMMISSIONS_TABLE = (process.env.PARTNER_COMMISSIONS_TABLE || 'partner_commissions').trim();
+const CRM_CLIENTS_TABLE = (process.env.CRM_CLIENTS_TABLE || 'clients').trim();
+const CRM_PRACTICES_TABLE = (process.env.CRM_PRACTICES_TABLE || 'practices').trim();
+const CRM_PROJECT_DESIGNERS_TABLE = (process.env.CRM_PROJECT_DESIGNERS_TABLE || 'project_designers').trim();
+const CRM_DEFAULT_DESIGNER_EMAIL = String(process.env.CRM_DEFAULT_DESIGNER_EMAIL || 'boncordoarredi89@gmail.com')
+  .trim()
+  .toLowerCase();
 const ADMIN_PRICING_SECRET = (process.env.ADMIN_PRICING_SECRET || '').trim();
 const LEAD_NOTIFICATION_EMAIL = String(process.env.LEAD_NOTIFICATION_EMAIL || 'amm.emotivegroup@gmail.com')
   .trim()
@@ -478,6 +484,100 @@ function parseBusinessCategories(businessType) {
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+async function findCrmDesignerIdByEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return null;
+  const rows = await supabaseSelect(
+    CRM_PROJECT_DESIGNERS_TABLE,
+    `select=id,email,is_active&email=eq.${encodeURIComponent(normalized)}&is_active=eq.true&limit=1`
+  );
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return rows[0]?.id || null;
+}
+
+async function ensureCrmClientAndPracticeFromLead({
+  leadNumber,
+  fullName,
+  email,
+  phone,
+  companyName,
+  vatNumber,
+  location,
+  businessType,
+  squareMeters,
+  totalPrice,
+  depositTotal,
+}) {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, skipped: true, reason: 'supabase_not_configured' };
+  }
+
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    return { ok: false, skipped: true, reason: 'invalid_email' };
+  }
+
+  const clientPayload = {
+    full_name: String(fullName || '').trim() || normalizedEmail,
+    email: normalizedEmail,
+    phone: String(phone || '').trim() || null,
+    company_name: String(companyName || '').trim() || null,
+    vat_number: String(vatNumber || '').trim() || null,
+    city: String(location || '').trim() || null,
+    business_type: String(businessType || '').trim() || null,
+  };
+
+  const clientRows = await supabaseUpsert(CRM_CLIENTS_TABLE, clientPayload, 'email');
+  const clientId = Array.isArray(clientRows) ? clientRows[0]?.id : null;
+  if (!clientId) {
+    throw new Error('Impossibile ottenere client_id CRM dopo upsert.');
+  }
+
+  let assignedDesignerId = await findCrmDesignerIdByEmail(normalizedEmail);
+  if (!assignedDesignerId && CRM_DEFAULT_DESIGNER_EMAIL) {
+    assignedDesignerId = await findCrmDesignerIdByEmail(CRM_DEFAULT_DESIGNER_EMAIL);
+  }
+
+  const safeLeadNumber = String(leadNumber || '').trim() || `LEAD-${Date.now().toString().slice(-8)}`;
+  const numericTotal = Number(totalPrice || 0);
+  const numericDeposit = Number(depositTotal || 0);
+  const numericBalance = Math.max(0, numericTotal - numericDeposit);
+  const sq = Number(squareMeters || 0);
+  const nextFollowupAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+
+  const practicePayload = {
+    reference_code: safeLeadNumber,
+    client_id: clientId,
+    status: 'preventivo_inviato',
+    scheduler_provider: process.env.CRM_SCHEDULER_PROVIDER === 'calcom' ? 'calcom' : 'calendly',
+    quote_amount: numericTotal,
+    deposit_amount: numericDeposit,
+    balance_amount: numericBalance,
+    square_meters: Number.isFinite(sq) && sq > 0 ? Math.round(sq) : null,
+    assigned_designer_id: assignedDesignerId || null,
+    next_followup_at: nextFollowupAt,
+    metadata: {
+      source: 'preventivatore_lead_save',
+      auto_bridge: true,
+      bridge_created_at: new Date().toISOString(),
+    },
+  };
+
+  const practiceRows = await supabaseUpsert(CRM_PRACTICES_TABLE, practicePayload, 'reference_code');
+  const practiceId = Array.isArray(practiceRows) ? practiceRows[0]?.id : null;
+  if (!practiceId) {
+    throw new Error('Impossibile ottenere practice_id CRM dopo upsert.');
+  }
+
+  return {
+    ok: true,
+    clientId,
+    practiceId,
+    referenceCode: safeLeadNumber,
+    assignedDesignerId: assignedDesignerId || null,
+  };
 }
 
 async function upsertSupabaseRecord(record) {
@@ -1453,6 +1553,7 @@ app.post('/api/gmail/send-quote', async (req, res) => {
       dynamicPricing.appliedReferralCode ||
       (typeof referralCode === 'string' ? referralCode.trim().toUpperCase() : '');
     const businessCategories = parseBusinessCategories(businessType);
+    let crmBridgeResult = null;
     const quoteNumber = nextSequenceCode('quote') || `PREV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
     const conceptVariant = pickConceptVariant(quoteNumber);
     const subject = `[${quoteNumber}] Preventivo EMOTIVE - ${businessType || 'Nuovo Progetto'} - ${fullName}`;
@@ -1944,6 +2045,27 @@ app.post('/api/leads/save', async (req, res) => {
       console.warn('⚠️ Errore sincronizzazione Supabase (lead-save):', supabaseErr.message);
     }
 
+    try {
+      crmBridgeResult = await ensureCrmClientAndPracticeFromLead({
+        leadNumber: newLead.leadNumber || leadNumber,
+        fullName,
+        email,
+        phone,
+        companyName,
+        vatNumber,
+        location,
+        businessType,
+        squareMeters,
+        totalPrice: effectiveTotalPrice,
+        depositTotal,
+      });
+      if (crmBridgeResult?.ok) {
+        console.log(`✅ Bridge CRM creato: practice ${crmBridgeResult.practiceId} (${crmBridgeResult.referenceCode})`);
+      }
+    } catch (crmBridgeErr) {
+      console.warn('⚠️ Errore bridge automatico verso CRM:', crmBridgeErr?.message || crmBridgeErr);
+    }
+
     if (isValidEmail(LEAD_NOTIFICATION_EMAIL)) {
       try {
         await sendGmailText({
@@ -1975,7 +2097,13 @@ app.post('/api/leads/save', async (req, res) => {
       console.log(`✅ Sincronizzato con Airtable ID: ${airtableId}`);
     }
     
-    res.json({ ok: true, leadId: newLead.id, leadNumber: newLead.leadNumber || leadNumber, airtableId });
+    res.json({
+      ok: true,
+      leadId: newLead.id,
+      leadNumber: newLead.leadNumber || leadNumber,
+      airtableId,
+      crmBridge: crmBridgeResult,
+    });
   } catch (err) {
     console.error('Errore salvataggio lead:', err);
     res.status(500).send('Errore salvataggio lead.');

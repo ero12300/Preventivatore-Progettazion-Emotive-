@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createPracticeSchema } from "@/lib/practice-schemas";
+import { createClient, createPractice, listPractices, practiceWorkflowRepo } from "@/lib/server/practice-repository";
+
+export async function GET() {
+  try {
+    const practices = await listPractices();
+    return NextResponse.json({ ok: true, practices });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Errore lettura pratiche.";
+    return NextResponse.json({ ok: false, message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const payload = createPracticeSchema.parse(await req.json());
+    const clientId = await createClient(payload.client);
+    const practice = await createPractice({
+      reference_code: payload.reference_code,
+      client_id: clientId,
+      square_meters: payload.square_meters,
+      quote_amount: payload.quote_amount,
+      deposit_amount: payload.deposit_amount,
+      balance_amount: payload.balance_amount,
+      assigned_designer_id: payload.assigned_designer_id ?? null,
+    });
+
+    await practiceWorkflowRepo.insertActivity({
+      practice_id: practice.id,
+      actor_user_id: null,
+      trigger_source: "manual_controlled",
+      action_key: "practice_created",
+      description: "Pratica creata con stato iniziale preventivo_inviato.",
+      payload: {
+        reference_code: practice.reference_code,
+      },
+    });
+
+    return NextResponse.json({ ok: true, practice }, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Errore creazione pratica.";
+    return NextResponse.json({ ok: false, message }, { status: 400 });
+  }
+}
