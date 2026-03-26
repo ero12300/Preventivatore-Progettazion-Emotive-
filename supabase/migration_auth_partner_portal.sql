@@ -102,6 +102,11 @@ for all using (
   )
 );
 
+-- Logged user can read their own profile (needed by Auth Portal to resolve role after magic link).
+drop policy if exists user_profiles_read_own on public.user_profiles;
+create policy user_profiles_read_own on public.user_profiles
+for select using (user_id = auth.uid());
+
 drop policy if exists partners_admin_all on public.partners;
 create policy partners_admin_all on public.partners
 for all using (

@@ -14,6 +14,14 @@ function getMagicLinkRedirectUrl(): string {
   return '';
 }
 
+function getCrmAppUrl(): string {
+  const fromEnv = (import.meta.env.VITE_CRM_APP_URL || '').trim().replace(/\r?\n/g, '');
+  if (fromEnv && /^https?:\/\//i.test(fromEnv)) {
+    return fromEnv;
+  }
+  return 'https://crm-next-app-two.vercel.app';
+}
+
 interface AuthPortalProps {
   setView: (view: AppView) => void;
   role: UserRole;
@@ -26,6 +34,7 @@ const AuthPortal: React.FC<AuthPortalProps> = ({ setView, role, userEmail, onRef
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const crmAppUrl = getCrmAppUrl();
 
   const sendMagicLink = async () => {
     if (!supabase || !isSupabaseAuthConfigured) {
@@ -103,6 +112,14 @@ const AuthPortal: React.FC<AuthPortalProps> = ({ setView, role, userEmail, onRef
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 p-6 flex flex-col sm:flex-row gap-3">
+          <a
+            href={crmAppUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-emotive-primary !py-3 !px-6 !text-[10px] text-center"
+          >
+            Apri CRM Operativo
+          </a>
           <button onClick={() => setView(AppView.ADMIN_PRICING)} className="btn-emotive-primary !py-3 !px-6 !text-[10px]">
             Vai ad Admin Pricing
           </button>

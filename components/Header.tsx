@@ -4,6 +4,7 @@ import { NavProps, AppView } from '../types';
 
 const Header: React.FC<NavProps> = ({ currentView, setView }) => {
   const logoLetters = ['E', 'M', 'O', 'T', 'I', 'V', 'E'];
+  const crmAppUrl = (import.meta.env.VITE_CRM_APP_URL || 'https://crm-next-app-two.vercel.app').trim();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-[100] bg-[#050505]/98 border-b border-white/5 h-20 md:h-24 backdrop-blur-xl">
@@ -41,6 +42,14 @@ const Header: React.FC<NavProps> = ({ currentView, setView }) => {
         </div>
         
         <nav className="flex items-center space-x-3 sm:space-x-5 md:space-x-12">
+          <a
+            href={crmAppUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-gold hover:text-white transition-all hidden md:block"
+          >
+            CRM
+          </a>
           <button
             onClick={() => setView(AppView.ADMIN_PRICING)}
             className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-all hidden md:block"
