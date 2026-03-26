@@ -4,11 +4,14 @@ import { executeDocumentationComplete } from "@/lib/server/practice-workflow";
 import { practiceWorkflowRepo } from "@/lib/server/practice-repository";
 import { getSchedulerService } from "@/lib/server/scheduler-stub";
 import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
+import { requireCrmAuth } from "@/lib/server/route-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const payload = workflowActionPayloadSchema.parse(body);

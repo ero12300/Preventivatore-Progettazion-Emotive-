@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { patchPractice, deletePractice, getPracticeById } from "@/lib/server/practice-repository";
 import { updatePracticeSchema } from "@/lib/practice-schemas";
+import { requireCrmAuth } from "@/lib/server/route-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const { id } = await params;
     const practice = await getPracticeById(id);
     if (!practice) {
@@ -20,6 +23,8 @@ export async function GET(_: NextRequest, { params }: Params) {
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const { id } = await params;
     const payload = updatePracticeSchema.parse(await req.json());
     const practice = await patchPractice(id, payload);
@@ -30,8 +35,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const { id } = await params;
     await deletePractice(id);
     return NextResponse.json({ ok: true });

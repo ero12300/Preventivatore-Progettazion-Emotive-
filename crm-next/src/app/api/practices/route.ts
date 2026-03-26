@@ -7,9 +7,12 @@ import {
   practiceWorkflowRepo,
 } from "@/lib/server/practice-repository";
 import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
+import { requireCrmAuth } from "@/lib/server/route-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const practices = await listPractices();
     return NextResponse.json({ ok: true, practices });
   } catch (error) {
@@ -20,6 +23,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireCrmAuth(req);
+    if (!auth.ok) return auth.response;
     const payload = createPracticeSchema.parse(await req.json());
     if (!payload.assigned_designer_id) {
       return NextResponse.json(

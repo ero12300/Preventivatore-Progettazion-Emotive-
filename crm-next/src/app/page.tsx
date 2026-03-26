@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Session } from "@supabase/supabase-js";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Designer = { id: string; full_name: string; email: string };
 type PracticeView = {
@@ -37,6 +39,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [followupPreview, setFollowupPreview] = useState<string | null>(null);
 
@@ -49,13 +56,22 @@ export default function Home() {
     [form]
   );
 
-  async function loadAll() {
+  const authHeaders = useCallback((): Record<string, string> => {
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [session?.access_token]);
+
+  const loadAll = useCallback(async () => {
+    if (!session?.access_token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const [pRes, dRes] = await Promise.all([
-        fetch("/api/practices", { cache: "no-store" }),
-        fetch("/api/designers", { cache: "no-store" }),
+        fetch("/api/practices", { cache: "no-store", headers: authHeaders() }),
+        fetch("/api/designers", { cache: "no-store", headers: authHeaders() }),
       ]);
       const pJson = await pRes.json();
       const dJson = await dRes.json();
@@ -68,11 +84,52 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [authHeaders, session?.access_token]);
+
+  useEffect(() => {
+    let mounted = true;
+    supabaseBrowser.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session ?? null);
+      setAuthLoading(false);
+    });
+    const { data } = supabaseBrowser.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+      setAuthLoading(false);
+    });
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     void loadAll();
-  }, []);
+  }, [loadAll]);
+
+  async function login() {
+    setLoginBusy(true);
+    setError(null);
+    try {
+      const { error: signInError } = await supabaseBrowser.auth.signInWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+      if (signInError) throw signInError;
+      setLoginPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Errore login.");
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  async function logout() {
+    await supabaseBrowser.auth.signOut();
+    setSession(null);
+    setPractices([]);
+    setDesigners([]);
+  }
 
   async function createPractice() {
     if (!canCreate) return;
@@ -81,7 +138,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/practices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           reference_code: form.reference_code,
           client: {
@@ -117,7 +174,7 @@ export default function Home() {
     setError(null);
     const res = await fetch(`/api/practices/${practiceId}/actions/${action}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({}),
     });
     const json = await res.json();
@@ -133,10 +190,65 @@ export default function Home() {
     await loadAll();
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100">
+        <main className="mx-auto max-w-xl px-6 py-20">
+          <p className="text-sm text-zinc-400">Verifica sessione in corso...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100">
+        <main className="mx-auto max-w-xl px-6 py-20">
+          <h1 className="text-3xl font-semibold tracking-tight">Accesso CRM EMOTIVE</h1>
+          <p className="mt-2 text-sm text-zinc-400">Entra con le tue credenziali amministratore.</p>
+          {error && <p className="mt-4 rounded bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>}
+          <div className="mt-6 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+            <input
+              className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              type="email"
+              placeholder="Email admin"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+            />
+            <input
+              className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              type="password"
+              placeholder="Password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => void login()}
+              disabled={!loginEmail.trim() || !loginPassword || loginBusy}
+              className="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+            >
+              {loginBusy ? "Accesso..." : "Accedi"}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">CRM EMOTIVE · Workflow MVP</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-semibold tracking-tight">CRM EMOTIVE · Workflow MVP</h1>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="rounded border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+          >
+            Logout
+          </button>
+        </div>
         <p className="mt-2 text-sm text-zinc-400">
           CRUD pratica + transizioni: pagamento_ricevuto e documentazione_completa.
         </p>
