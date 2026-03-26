@@ -3,6 +3,7 @@ import { workflowActionPayloadSchema } from "@/lib/practice-schemas";
 import { executeDocumentationComplete } from "@/lib/server/practice-workflow";
 import { practiceWorkflowRepo } from "@/lib/server/practice-repository";
 import { getSchedulerService } from "@/lib/server/scheduler-stub";
+import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       id,
       { actorUserId: payload.actor_user_id ?? null }
     );
+    await sendDesignerTaskNotification(practice.id, "documentation_complete");
 
     return NextResponse.json({ ok: true, practice });
   } catch (error) {

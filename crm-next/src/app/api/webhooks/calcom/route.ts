@@ -6,6 +6,7 @@ import {
   practiceWorkflowRepo,
 } from "@/lib/server/practice-repository";
 import { handleCalcomBookingCreated } from "@/lib/server/calcom-webhook";
+import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
 
 function isBookingCreatedEvent(payload: unknown): boolean {
   if (!payload || typeof payload !== "object") return false;
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
       },
       payload
     );
+    await sendDesignerTaskNotification(updated.id, "booking_confirmed");
 
     return NextResponse.json({
       ok: true,

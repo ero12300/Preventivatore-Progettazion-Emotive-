@@ -30,6 +30,7 @@ Copia `.env.example` in `.env.local` e compila:
 - `CRM_SCHEDULER_PROVIDER` (`calendly` o `calcom`)
 - `AIRTABLE_API_KEY` + `AIRTABLE_BASE_ID` (opzionale, per mirror automatico)
 - `AIRTABLE_TABLE_PRACTICES`, `AIRTABLE_TABLE_CLIENTS`, `AIRTABLE_TABLE_ACTIVITY` (nomi tabelle Airtable personalizzabili)
+- `RESEND_API_KEY` + `DESIGNER_NOTIFICATION_FROM` (notifiche task automatiche ai progettisti)
 
 ## Migrazione Supabase (fondamenta)
 
@@ -132,3 +133,9 @@ Se configuri `AIRTABLE_API_KEY` e `AIRTABLE_BASE_ID`, il CRM mantiene uno specch
 - delete pratica anche su Airtable in caso di cancellazione CRM
 
 Campi/tabelle possono essere rinominati via env, mantenendo lo stesso flusso del CRM.
+
+## Notifiche automatiche al progettista (nuovo)
+
+- in creazione pratica la selezione progettista e obbligatoria
+- alla creazione pratica e ai passaggi principali (`pagamento_ricevuto`, `documentazione_completa`, conferma booking da webhook Cal.com) il CRM invia email operativa al progettista selezionato
+- per abilitare invio reale configura `RESEND_API_KEY` e `DESIGNER_NOTIFICATION_FROM`

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { workflowActionPayloadSchema } from "@/lib/practice-schemas";
 import { executePaymentReceived } from "@/lib/server/practice-workflow";
 import { practiceWorkflowRepo } from "@/lib/server/practice-repository";
+import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const practice = await executePaymentReceived(practiceWorkflowRepo, id, {
       actorUserId: payload.actor_user_id ?? null,
     });
+    await sendDesignerTaskNotification(practice.id, "payment_received");
     return NextResponse.json({ ok: true, practice });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Errore azione pagamento_ricevuto.";

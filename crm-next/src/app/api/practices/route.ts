@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPracticeSchema } from "@/lib/practice-schemas";
-import { createClient, createPractice, listPractices, practiceWorkflowRepo } from "@/lib/server/practice-repository";
+import {
+  createClient,
+  createPractice,
+  listPractices,
+  practiceWorkflowRepo,
+} from "@/lib/server/practice-repository";
+import { sendDesignerTaskNotification } from "@/lib/server/designer-notifications";
 
 export async function GET() {
   try {
@@ -15,6 +21,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const payload = createPracticeSchema.parse(await req.json());
+    if (!payload.assigned_designer_id) {
+      return NextResponse.json(
+        { ok: false, message: "Seleziona un progettista prima di creare la pratica." },
+        { status: 400 }
+      );
+    }
     const clientId = await createClient(payload.client);
     const practice = await createPractice({
       reference_code: payload.reference_code,
@@ -23,7 +35,7 @@ export async function POST(req: NextRequest) {
       quote_amount: payload.quote_amount,
       deposit_amount: payload.deposit_amount,
       balance_amount: payload.balance_amount,
-      assigned_designer_id: payload.assigned_designer_id ?? null,
+      assigned_designer_id: payload.assigned_designer_id,
     });
 
     await practiceWorkflowRepo.insertActivity({
@@ -36,6 +48,8 @@ export async function POST(req: NextRequest) {
         reference_code: practice.reference_code,
       },
     });
+
+    await sendDesignerTaskNotification(practice.id, "practice_created");
 
     return NextResponse.json({ ok: true, practice }, { status: 201 });
   } catch (error) {

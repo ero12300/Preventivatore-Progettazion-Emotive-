@@ -41,7 +41,11 @@ export default function Home() {
   const [followupPreview, setFollowupPreview] = useState<string | null>(null);
 
   const canCreate = useMemo(
-    () => form.reference_code.trim() && form.full_name.trim() && form.email.trim(),
+    () =>
+      form.reference_code.trim() &&
+      form.full_name.trim() &&
+      form.email.trim() &&
+      form.assigned_designer_id.trim(),
     [form]
   );
 
@@ -201,7 +205,7 @@ export default function Home() {
                 setForm((s) => ({ ...s, assigned_designer_id: e.target.value }))
               }
             >
-              <option value="">Nessun progettista</option>
+              <option value="">Seleziona progettista (obbligatorio)</option>
               {designers.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.full_name}
