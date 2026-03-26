@@ -1601,47 +1601,50 @@ app.post('/api/gmail/send-quote', async (req, res) => {
 
     const paymentLinkExpiresAt = new Date(Date.now() + PAYMENT_LINK_VALID_HOURS * 60 * 60 * 1000).toISOString();
 
+    if (!stripe) {
+      return res.status(500).send('Stripe non configurato. Impossibile inviare il preventivo senza link pagamento.');
+    }
+
     // Crea Payment Link Stripe; il link nell'email scade dopo 24 ore
     let stripeUrl = '';
-    if (stripe) {
-      try {
-        const amountCents = Math.round((effectiveDepositTotal || 0) * 100);
-        const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3002';
+    try {
+      const amountCents = Math.round((effectiveDepositTotal || 0) * 100);
+      const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3002';
 
-        const paymentLink = await stripe.paymentLinks.create({
-          line_items: [
-            {
-              quantity: 1,
-              price_data: {
-                currency: 'eur',
-                unit_amount: amountCents,
-                product_data: {
-                  name: 'Acconto Protocollo EMOTIVE®',
-                  description: `${fullName} - ${businessType || ''} - ${location || ''}`,
-                },
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'eur',
+              unit_amount: amountCents,
+              product_data: {
+                name: 'Acconto Protocollo EMOTIVE®',
+                description: `${fullName} - ${businessType || ''} - ${location || ''}`,
               },
             },
-          ],
-          after_completion: {
-            type: 'redirect',
-            redirect: {
-              url: `${appBaseUrl}/?session_id={CHECKOUT_SESSION_ID}#success`,
-            },
           },
-          metadata: {
-            firstName: firstName || '',
-            lastName: lastName || '',
-            clientName: fullName,
-            businessType: businessType || '',
-            location: location || '',
-            totalPrice: String(effectiveTotalPrice || ''),
+        ],
+        after_completion: {
+          type: 'redirect',
+          redirect: {
+            url: `${appBaseUrl}/?session_id={CHECKOUT_SESSION_ID}#success`,
           },
-        });
-        stripeUrl = paymentLink.url;
-        console.log(`✅ Link pagamento creato (valido ${PAYMENT_LINK_VALID_HOURS} ore): ${stripeUrl}`);
-      } catch (stripeErr) {
-        console.warn('⚠️ Impossibile creare Payment Link Stripe:', stripeErr.message);
-      }
+        },
+        metadata: {
+          firstName: firstName || '',
+          lastName: lastName || '',
+          clientName: fullName,
+          businessType: businessType || '',
+          location: location || '',
+          totalPrice: String(effectiveTotalPrice || ''),
+        },
+      });
+      stripeUrl = paymentLink.url;
+      console.log(`✅ Link pagamento creato (valido ${PAYMENT_LINK_VALID_HOURS} ore): ${stripeUrl}`);
+    } catch (stripeErr) {
+      console.warn('⚠️ Impossibile creare Payment Link Stripe:', stripeErr.message);
+      return res.status(500).send('Errore creazione link pagamento Stripe. Preventivo non inviato.');
     }
 
     try {

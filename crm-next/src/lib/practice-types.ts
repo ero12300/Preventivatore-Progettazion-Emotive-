@@ -21,6 +21,9 @@ export type PracticeRecord = {
   followup_last_sent_at: string | null;
   next_followup_at: string | null;
   followup_last_message: string | null;
+  external_booking_uid: string | null;
+  external_event_start_at: string | null;
+  appointment_confirmed_at: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

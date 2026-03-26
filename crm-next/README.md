@@ -28,6 +28,8 @@ Copia `.env.example` in `.env.local` e compila:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (solo server)
 - `CRM_SCHEDULER_PROVIDER` (`calendly` o `calcom`)
+- `AIRTABLE_API_KEY` + `AIRTABLE_BASE_ID` (opzionale, per mirror automatico)
+- `AIRTABLE_TABLE_PRACTICES`, `AIRTABLE_TABLE_CLIENTS`, `AIRTABLE_TABLE_ACTIVITY` (nomi tabelle Airtable personalizzabili)
 
 ## Migrazione Supabase (fondamenta)
 
@@ -119,3 +121,14 @@ Test automatici:
 ```bash
 npm test
 ```
+
+## Mirror Airtable automatico (nuovo)
+
+Se configuri `AIRTABLE_API_KEY` e `AIRTABLE_BASE_ID`, il CRM mantiene uno specchio automatico su Airtable:
+
+- upsert clienti (chiave: `crm_client_id`)
+- upsert pratiche (chiave: `crm_practice_id`)
+- append attività/log workflow
+- delete pratica anche su Airtable in caso di cancellazione CRM
+
+Campi/tabelle possono essere rinominati via env, mantenendo lo stesso flusso del CRM.

@@ -1,9 +1,15 @@
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { ActivityLogRecord, PracticeRecord } from "@/lib/practice-types";
 import { PracticeWorkflowRepo } from "@/lib/server/practice-workflow";
+import {
+  mirrorActivityToAirtable,
+  mirrorClientToAirtable,
+  mirrorPracticeDeletionToAirtable,
+  mirrorPracticeToAirtable,
+} from "@/lib/server/airtable-mirror";
 
 const PRACTICE_SELECT =
-  "id,reference_code,client_id,status,scheduler_provider,quote_amount,deposit_amount,balance_amount,square_meters,assigned_designer_id,booking_link_sent_at,booking_link_url,payment_received_at,documents_completed_at,quote_sent_at,quote_accepted_at,followup_count,followup_last_sent_at,next_followup_at,followup_last_message,metadata,created_at,updated_at";
+  "id,reference_code,client_id,status,scheduler_provider,quote_amount,deposit_amount,balance_amount,square_meters,assigned_designer_id,booking_link_sent_at,booking_link_url,payment_received_at,documents_completed_at,quote_sent_at,quote_accepted_at,followup_count,followup_last_sent_at,next_followup_at,followup_last_message,external_booking_uid,external_event_start_at,appointment_confirmed_at,metadata,created_at,updated_at";
 
 function mapPractice(row: Record<string, unknown>): PracticeRecord {
   return {
@@ -27,6 +33,9 @@ function mapPractice(row: Record<string, unknown>): PracticeRecord {
     followup_last_sent_at: (row.followup_last_sent_at as string | null) ?? null,
     next_followup_at: (row.next_followup_at as string | null) ?? null,
     followup_last_message: (row.followup_last_message as string | null) ?? null,
+    external_booking_uid: (row.external_booking_uid as string | null) ?? null,
+    external_event_start_at: (row.external_event_start_at as string | null) ?? null,
+    appointment_confirmed_at: (row.appointment_confirmed_at as string | null) ?? null,
     metadata: (row.metadata as Record<string, unknown>) ?? {},
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
@@ -57,6 +66,18 @@ export async function getPracticeById(id: string) {
   return mapPractice(data);
 }
 
+export async function getPracticeByReferenceCode(referenceCode: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("practices")
+    .select(PRACTICE_SELECT)
+    .eq("reference_code", referenceCode)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return mapPractice(data);
+}
+
 export async function createClient(input: {
   full_name: string;
   email: string;
@@ -73,7 +94,14 @@ export async function createClient(input: {
     .eq("email", input.email)
     .maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
-  if (existing?.id) return existing.id as string;
+  if (existing?.id) {
+    const existingId = existing.id as string;
+    await mirrorClientToAirtable({
+      id: existingId,
+      ...input,
+    });
+    return existingId;
+  }
 
   const { data, error } = await supabase
     .from("clients")
@@ -81,6 +109,10 @@ export async function createClient(input: {
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+  await mirrorClientToAirtable({
+    id: data.id as string,
+    ...input,
+  });
   return data.id as string;
 }
 
@@ -107,7 +139,9 @@ export async function createPractice(input: {
     .select(PRACTICE_SELECT)
     .single();
   if (error) throw new Error(error.message);
-  return mapPractice(data);
+  const practice = mapPractice(data);
+  await mirrorPracticeToAirtable(practice.id);
+  return practice;
 }
 
 export async function patchPractice(
@@ -129,13 +163,16 @@ export async function patchPractice(
     .select(PRACTICE_SELECT)
     .single();
   if (error) throw new Error(error.message);
-  return mapPractice(data);
+  const practice = mapPractice(data);
+  await mirrorPracticeToAirtable(practice.id);
+  return practice;
 }
 
 export async function deletePractice(id: string) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("practices").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await mirrorPracticeDeletionToAirtable(id);
 }
 
 export async function listDesigners() {
@@ -176,7 +213,9 @@ export const practiceWorkflowRepo: PracticeWorkflowRepo = {
       .select(PRACTICE_SELECT)
       .single();
     if (error) throw new Error(error.message);
-    return mapPractice(data);
+    const practice = mapPractice(data);
+    await mirrorPracticeToAirtable(practice.id);
+    return practice;
   },
   async insertActivity(input: ActivityLogRecord) {
     const supabase = getSupabaseAdmin();
@@ -189,5 +228,6 @@ export const practiceWorkflowRepo: PracticeWorkflowRepo = {
       payload: input.payload ?? {},
     });
     if (error) throw new Error(error.message);
+    await mirrorActivityToAirtable(input);
   },
 };
